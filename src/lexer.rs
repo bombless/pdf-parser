@@ -94,6 +94,22 @@ impl State {
                 return "\nstream\n".len();
             }
 
+            if c == '-' {
+                let (len, n) = if let Some((len, n)) = parse_number(curr) {
+                    (len, n)
+                } else {
+                    return 0;
+                };
+                if !usize_stack.is_empty() {
+                    let numbers = usize_stack
+                        .drain(..)
+                        .map(|x| Token::Number( x as f64));
+                    tokens_waiting.extend(numbers);
+                }
+                tokens_waiting.push_back(Token::Number(n));
+                return len;
+            }
+
             if c.is_digit(10) {
                 let n = (byte - b'0') as usize;
 
@@ -210,7 +226,7 @@ impl State {
 }
 
 fn parse_number(src: &[u8]) -> Option<(usize, f64)> {
-    let len = src.iter().position(|x| x != &b'.' && !x.is_ascii_digit()).unwrap_or(src.len());
+    let len = src.iter().position(|x| x != &b'.' && x != &b'-' && !x.is_ascii_digit()).unwrap_or(src.len());
     src[..len].iter().map(|&x| x as char).collect::<String>().parse().ok().map(|x| (len, x))
 }
 
@@ -220,6 +236,7 @@ mod tests {
     #[test]
     fn test_number() {
         assert_eq!(parse(b"1").get_next_token().unwrap(), Token::Number(1.));
+        assert_eq!(parse(b"-1").get_next_token().unwrap(), Token::Number(-1.));
         assert_eq!(parse(b"1.5").get_next_token().unwrap(), Token::Number(1.5));
         assert_eq!(parse(b"1.5 2 3 4").get_next_token().unwrap(), Token::Number(1.5));
         assert_eq!(parse(b"42").get_next_token().unwrap(), Token::Number(42.));
