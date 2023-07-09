@@ -17,6 +17,16 @@ pub enum Token {
     Number(f64),
 }
 
+impl <T> PartialEq<T> for Token where f64: From<T>, T: Clone {
+    fn eq(&self, other: &T) -> bool {
+        if let Token::Number(n) = self {
+            n == &(f64::from(other.clone()))
+        } else {
+            false
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct State {
     store: Vec<u8>,
@@ -268,6 +278,14 @@ mod tests {
             parser.get_next_token()
         };
         assert_eq!(token, Some(Token::Number(3.)));
+
+        let mut parser = parse(b"1 2 3 4 5");
+        assert_eq!(parser.get_next_token().unwrap(), 1);
+        assert_eq!(parser.get_next_token().unwrap(), 2);
+        assert_eq!(parser.get_next_token().unwrap(), 3);
+        assert_eq!(parser.get_next_token().unwrap(), 4);
+        assert_eq!(parser.get_next_token().unwrap(), 5);
+        assert_eq!(parser.get_next_token(), None);
     }
     #[test]
     fn test_object() {
