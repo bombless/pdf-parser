@@ -17,14 +17,17 @@ pub enum Token {
     Number(f64),
 }
 
+#[derive(Default)]
 pub struct State {
     store: Vec<u8>,
     index: usize,
     comments: Vec<(usize, Vec<u8>)>,
+    usize_stack: VecDeque<usize>,
+    tokens_waiting: VecDeque<Token>,
 }
 
 pub fn parse(src: &[u8]) -> State {
-    State { store: src.into(), index: 0, comments: vec![] }
+    State { store: src.into(), ..State::default() }
 }
 
 impl State {
@@ -32,12 +35,8 @@ impl State {
         use std::mem::take;
 
         if self.index >= self.store.len() {
-            return None;
+            return self.pop_stacks();
         }
-
-        let mut usize_stack = VecDeque::new();
-
-        let mut tokens_waiting = VecDeque::new();
 
         let mut comment : Option<(usize, Vec<u8>)> = None;
         
@@ -45,6 +44,7 @@ impl State {
                 |
                 curr :&[_],
                 token: &mut Option<_>,
+                comments : &mut Vec<_>,
                 index,
                 tokens_waiting: &mut VecDeque<_>,
                 usize_stack: &mut VecDeque<_>| {
@@ -60,7 +60,7 @@ impl State {
                     return 1;
                 }
                 else {
-                    self.comments.push((base, take(comment_content)));
+                    comments.push((base, take(comment_content)));
                     comment_end = true;
                 }
             }
@@ -130,7 +130,11 @@ impl State {
                         continue;
                     }
                     if curr[i] != b'.' {
-                        break;
+                        usize_stack.push_back(n);
+                        if usize_stack.len() > 2 {
+                            tokens_waiting.push_back(Token::Number(usize_stack.pop_front().unwrap() as _));
+                        }
+                        return i;
                     }
                     let (len, n) = if let Some((len, n)) = parse_number(curr) {
                         (len, n)
@@ -148,7 +152,7 @@ impl State {
                 }
                 usize_stack.push_back(n);
                 if usize_stack.len() > 2 {
-                    token.replace(Token::Number(usize_stack.pop_front().unwrap() as _));
+                    tokens_waiting.push_back(Token::Number(usize_stack.pop_front().unwrap() as _));
                 }
                 return curr.len();
             }
@@ -172,7 +176,7 @@ impl State {
             }
 
             if usize_stack.len() >= 2 {
-                token.replace(Token::Number(usize_stack.pop_front().unwrap() as _));
+                tokens_waiting.push_back(Token::Number(usize_stack.pop_front().unwrap() as _));
             }
 
             return 0;
@@ -182,28 +186,29 @@ impl State {
 
             let mut token = None;
             let curr = &self.store[..][self.index..];
-            let step = proc(curr, &mut token, self.index, &mut tokens_waiting, &mut usize_stack);
+            let step = proc(curr, &mut token, &mut self.comments, self.index, &mut self.tokens_waiting, &mut self.usize_stack);
+            self.index += step;
             if token.is_some() {
                 return token;
             }
-            if let Some(x) = tokens_waiting.pop_front() {
-                return Some(x);
-            }
-            if let Some(x) = usize_stack.pop_front() {
-                return Some(Token::Number(x as _));
-            }
+            // let item = self.pop_stacks();
+            // if item.is_some() {
+            //     return item;
+            // }
             if step == 0 { return None; }
-            self.index += step;
         }
-        if let Some(x) = tokens_waiting.pop_front() {
+        self.pop_stacks()
+
+    }
+    fn pop_stacks(&mut self) -> Option<Token> {
+        if let Some(x) = self.tokens_waiting.pop_front() {
             return Some(x);
         }
-        if let Some(x) = usize_stack.pop_front() {
+        if let Some(x) = self.usize_stack.pop_front() {
             return Some(Token::Number(x as _));
         }
 
         None
-
     }
     pub fn get_fixed_length_stream(&mut self, size: usize, buf: &mut Vec<u8>) -> bool {
         if self.store.len() < size + self.index {
@@ -241,6 +246,28 @@ mod tests {
         assert_eq!(parse(b"1.5 2 3 4").get_next_token().unwrap(), Token::Number(1.5));
         assert_eq!(parse(b"42").get_next_token().unwrap(), Token::Number(42.));
         assert_eq!(parse(b"6 6").get_next_token().unwrap(), Token::Number(6.));
+    }
+    #[test]
+    fn test_multiple_tokens() {
+        let token = {
+            let mut parser = parse(b"-1 2");
+            parser.get_next_token();
+            parser.get_next_token()
+        };
+        assert_eq!(token, Some(Token::Number(2.)));
+        let token = {
+            let mut parser = parse(b"1");
+            parser.get_next_token();
+            parser.get_next_token()
+        };
+        assert_eq!(token, None);
+        let token = {
+            let mut parser = parse(b"-1 2 3");
+            parser.get_next_token();
+            parser.get_next_token();
+            parser.get_next_token()
+        };
+        assert_eq!(token, Some(Token::Number(3.)));
     }
     #[test]
     fn test_object() {
