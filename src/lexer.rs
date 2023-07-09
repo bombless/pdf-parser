@@ -82,8 +82,6 @@ impl State {
             if !byte.is_ascii() { panic!("non-ascii, index {index}"); }
             let c = curr[0] as char;
             
-            if c.is_whitespace() { return 1; }
-            
             if c == '%' {
                 comment = Some((index, vec![]));
                 return 1;
@@ -185,8 +183,23 @@ impl State {
                 return 0;
             }
 
-            if usize_stack.len() >= 2 {
-                tokens_waiting.push_back(Token::Number(usize_stack.pop_front().unwrap() as _));
+            if c == ']' {
+                token.replace(Token::ListEnd);
+                return 1;
+            }
+
+            if curr.starts_with(b">>") {
+                token.replace(Token::DictEnd);
+                return 2;
+            }
+
+            if curr.starts_with(b"\nendobj\n") {
+                token.replace(Token::ObjectEnd);
+                return "\nendobj\n".len();
+            }
+            
+            if c.is_whitespace() {
+                return 1;
             }
 
             return 0;
@@ -205,7 +218,9 @@ impl State {
             // if item.is_some() {
             //     return item;
             // }
-            if step == 0 { return None; }
+            if step == 0 {
+                return None;
+            }
         }
         self.pop_stacks()
 
@@ -290,6 +305,7 @@ mod tests {
     #[test]
     fn test_object() {
         assert_eq!(parse(b"1 2 obj\n").get_next_token().unwrap(), Token::ObjectStart((1, 2)));
+        assert_eq!(parse(b"\nendobj\n").get_next_token().unwrap(), Token::ObjectEnd);
     }
 
 }
