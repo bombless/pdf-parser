@@ -115,7 +115,11 @@ impl State {
                         }
                         return i;
                     }
-                    let (len, n) = parse_number(curr);
+                    let (len, n) = if let Some((len, n)) = parse_number(curr) {
+                        (len, n)
+                    } else {
+                        return 0;
+                    };
                     if !usize_stack.is_empty() {
                         let numbers = usize_stack
                             .drain(..)
@@ -191,8 +195,9 @@ impl State {
     }
 }
 
-fn parse_number(src: &[u8]) -> (usize, f64) {
-    unimplemented!()
+fn parse_number(src: &[u8]) -> Option<(usize, f64)> {
+    let len = src.iter().position(|x| x != &b'.' && !x.is_ascii_digit()).unwrap();
+    src[..len].iter().map(|&x| x as char).collect::<String>().parse().ok().map(|x| (len, x))
 }
 
 #[cfg(test)]
@@ -201,6 +206,7 @@ mod tests {
     #[test]
     fn test_number() {
         assert_eq!(parse(b"1 2 3 4").get_next_token().unwrap(), Token::Number(1.));
+        assert_eq!(parse(b"1.5 2 3 4").get_next_token().unwrap(), Token::Number(1.5));
     }
     #[test]
     fn test_object() {
