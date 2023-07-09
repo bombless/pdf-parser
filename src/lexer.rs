@@ -42,13 +42,27 @@ pub fn parse(src: &[u8]) -> State {
 
 impl State {
     pub fn get_next_token(&mut self) -> Option<Token> {
-        use std::mem::take;
+        use std::mem::{take, replace};
+
+        enum Ctx {
+            Comment(usize, Vec<u8>),
+            Key(usize, String),
+            String(usize, String),
+            None,
+        }
+
+        impl Default for Ctx {
+            fn default() -> Self {
+                Ctx::None
+            }
+        }
 
         if self.index >= self.store.len() {
             return self.pop_stacks();
         }
 
-        let mut comment : Option<(usize, Vec<u8>)> = None;
+        let mut prev_ctx = Ctx::None;
+        let mut curr_ctx = Ctx::None;
         
         let mut proc =
                 |
@@ -62,28 +76,30 @@ impl State {
 
             let byte = curr[0];
 
-            let mut comment_end = false;
-
-            if let &mut Some((base, ref mut comment_content)) = &mut comment {
-                if byte != b'\n' {
+            match &mut curr_ctx {
+                &mut Ctx::Comment(_, ref mut comment_content) if byte != b'\n' => {
                     comment_content.push(byte);
                     return 1;
                 }
-                else {
-                    comments.push((base, take(comment_content)));
-                    comment_end = true;
-                }
+                ctx @ &mut Ctx::Comment(..) => prev_ctx = take(ctx),
+                Ctx::None => {}
+                _ => unimplemented!()
             }
-            if comment_end {
-                comment = None;
-                return 1;
+
+            match take(&mut prev_ctx) {
+                Ctx::Comment(base, comment_content) => {
+                    comments.push((base, comment_content));
+                    return 1;
+                }
+                Ctx::None => {}
+                _ => unimplemented!()
             }
 
             if !byte.is_ascii() { panic!("non-ascii, index {index}"); }
             let c = curr[0] as char;
             
             if c == '%' {
-                comment = Some((index, vec![]));
+                curr_ctx = Ctx::Comment(index, vec![]);
                 return 1;
             }
 
