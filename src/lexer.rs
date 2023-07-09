@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, PartialEq, Eq)]
+
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     StringLiteral(String),
     Key(String),
@@ -8,10 +10,10 @@ pub enum Token {
     ListEnd,
     StreamStart,
     StreamEnd,
-    ObjectStart(usize, usize),
+    ObjectStart((usize, usize)),
     ObjectEnd,
-    Ref(usize, usize),
-    Number,
+    Ref((usize, usize)),
+    Number(f64),
 }
 
 pub struct State {
@@ -34,19 +36,28 @@ impl State {
 
         let mut comment : Option<(usize, Vec<u8>)> = None;
 
+        let mut usize_queue = vec![];
+
         let mut token = None;
         
         let mut proc =
                 |curr :&[u8], token: &mut Option<Token>, index| {
             let byte = curr[0];
 
-            if let &mut Some((base, ref mut comment)) = &mut comment {
+            let mut comment_end = false;
+
+            if let &mut Some((base, ref mut comment_content)) = &mut comment {
                 if byte != b'\n' {
-                    comment.push(byte);
+                    comment_content.push(byte);
+                    return 1;
                 }
                 else {
-                    self.comments.push((base, take(comment)));
+                    self.comments.push((base, take(comment_content)));
+                    comment_end = true;
                 }
+            }
+            if comment_end {
+                comment = None;
                 return 1;
             }
 
@@ -73,6 +84,39 @@ impl State {
             if curr.starts_with(b"\nstream\n") {
                 *token = Some(Token::StreamStart);
                 return "\nstream\n".len();
+            }
+
+            if c.is_digit(10) {
+                let n = (byte - b'0') as usize;
+
+                if n == 0  {
+                    if curr[1].is_ascii_digit() {
+                        return 0;
+                    } else {
+                        usize_queue.push(n);
+                        return 1;
+                    }
+                }
+                
+                let mut n = n;
+
+                for i in 1 .. curr.len() {
+                    if !curr[i].is_ascii_digit() {
+                        usize_queue.push(n);
+                        return i;
+                    }
+                    n = n * 10 + (curr[i] - b'0') as usize;
+                }
+                return curr.len();
+            }
+
+            if curr.starts_with(b"obj\n") {
+                if usize_queue.len() == 2 {
+                    *token = Some(Token::ObjectStart((usize_queue[0], usize_queue[1])));
+                    usize_queue.clear();
+                    return "obj\n".len();
+                }
+                return 0;
             }
 
             return 0;
