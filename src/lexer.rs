@@ -1,5 +1,6 @@
 
 use std::collections::VecDeque;
+use std::ops::Deref;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
@@ -17,10 +18,20 @@ pub enum Token {
     Number(f64),
 }
 
+impl PartialEq<str> for Token {
+    fn eq(&self, other: &str) -> bool {
+        if let Token::Key(s) | Token::StringLiteral(s) = self {
+            s == other
+        } else {
+            false
+        }
+    }
+}
+
 impl <T> PartialEq<T> for Token where f64: From<T>, T: Clone {
     fn eq(&self, other: &T) -> bool {
         if let Token::Number(n) = self {
-            n == &(f64::from(other.clone()))
+            n == &f64::from(other.clone())
         } else {
             false
         }
@@ -42,7 +53,7 @@ pub fn parse(src: &[u8]) -> State {
 
 impl State {
     pub fn get_next_token(&mut self) -> Option<Token> {
-        use std::mem::{take, replace};
+        use std::mem::take;
 
         enum Ctx {
             Comment(usize, Vec<u8>),
@@ -64,6 +75,7 @@ impl State {
         let mut prev_ctx = Ctx::None;
         let mut curr_ctx = Ctx::None;
         
+        
         let mut proc =
                 |
                 curr :&[_],
@@ -82,8 +94,22 @@ impl State {
                     return 1;
                 }
                 ctx @ &mut Ctx::Comment(..) => prev_ctx = take(ctx),
+                &mut Ctx::String(_, ref mut string_content) if byte != b')' => {
+                    string_content.push(byte as char);
+                    return 1;
+                }
+                ctx @ &mut Ctx::String(..) => prev_ctx = take(ctx),
+                &mut Ctx::Key(_, ref mut key_content) if !byte.is_ascii_whitespace() && curr.len() > 1 => {
+                    if curr.len() == 2 {
+                        key_content.push(curr[0] as char);
+                        key_content.push(curr[1] as char);
+                        return 1;
+                    }
+                    key_content.push(byte as char);
+                    return 1;
+                }
+                ctx @ &mut Ctx::Key(..) => prev_ctx = take(ctx),
                 Ctx::None => {}
-                _ => unimplemented!()
             }
 
             match take(&mut prev_ctx) {
@@ -91,8 +117,15 @@ impl State {
                     comments.push((base, comment_content));
                     return 1;
                 }
+                Ctx::String(_, string_content) => {
+                    token.replace(Token::StringLiteral(string_content));
+                    return 1;
+                }
+                Ctx::Key(_, key_content) => {
+                    token.replace(Token::Key(key_content));
+                    return 1;
+                }
                 Ctx::None => {}
-                _ => unimplemented!()
             }
 
             if !byte.is_ascii() { panic!("non-ascii, index {index}"); }
@@ -100,6 +133,16 @@ impl State {
             
             if c == '%' {
                 curr_ctx = Ctx::Comment(index, vec![]);
+                return 1;
+            }
+
+            if c == '(' {
+                curr_ctx = Ctx::String(index, String::new());
+                return 1;
+            }
+
+            if c == '/' {
+                curr_ctx = Ctx::Key(index, String::new());
                 return 1;
             }
 
@@ -322,6 +365,11 @@ mod tests {
     fn test_object() {
         assert_eq!(parse(b"1 2 obj\n").get_next_token().unwrap(), Token::ObjectStart((1, 2)));
         assert_eq!(parse(b"\nendobj\n").get_next_token().unwrap(), Token::ObjectEnd);
+    }
+    #[test]
+    fn test_key_or_string() {
+        assert_eq!(&parse(b"/abc").get_next_token().unwrap(), "abc");
+        assert_eq!(&parse(b"(I love you)").get_next_token().unwrap(), "I love you");
     }
 
 }
