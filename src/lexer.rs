@@ -35,14 +35,19 @@ impl State {
             return None;
         }
 
-        let mut comment : Option<(usize, Vec<u8>)> = None;
-
         let mut usize_stack = VecDeque::new();
 
-        let mut token = None;
+        let mut tokens_waiting = VecDeque::new();
+
+        let mut comment : Option<(usize, Vec<u8>)> = None;
         
         let mut proc =
-                |curr :&[_], token: &mut Option<_>, index, tokens_waiting: &mut VecDeque<_>| {
+                |
+                curr :&[_],
+                token: &mut Option<_>,
+                index,
+                tokens_waiting: &mut VecDeque<_>,
+                usize_stack: &mut VecDeque<_>| {
 
 
             let byte = curr[0];
@@ -109,11 +114,7 @@ impl State {
                         continue;
                     }
                     if curr[i] != b'.' {
-                        usize_stack.push_back(n);
-                        if usize_stack.len() > 2 {
-                            token.replace(Token::Number(usize_stack.pop_front().unwrap() as _));
-                        }
-                        return i;
+                        break;
                     }
                     let (len, n) = if let Some((len, n)) = parse_number(curr) {
                         (len, n)
@@ -128,6 +129,10 @@ impl State {
                     }
                     tokens_waiting.push_back(Token::Number(n));
                     return len;
+                }
+                usize_stack.push_back(n);
+                if usize_stack.len() > 2 {
+                    token.replace(Token::Number(usize_stack.pop_front().unwrap() as _));
                 }
                 return curr.len();
             }
@@ -159,17 +164,26 @@ impl State {
 
         while self.index < self.store.len() {
 
-            let mut tokens_waiting = VecDeque::new();
+            let mut token = None;
             let curr = &self.store[..][self.index..];
-            let step = proc(curr, &mut token, self.index, &mut tokens_waiting);
+            let step = proc(curr, &mut token, self.index, &mut tokens_waiting, &mut usize_stack);
             if token.is_some() {
                 return token;
             }
             if let Some(x) = tokens_waiting.pop_front() {
                 return Some(x);
             }
+            if let Some(x) = usize_stack.pop_front() {
+                return Some(Token::Number(x as _));
+            }
             if step == 0 { return None; }
             self.index += step;
+        }
+        if let Some(x) = tokens_waiting.pop_front() {
+            return Some(x);
+        }
+        if let Some(x) = usize_stack.pop_front() {
+            return Some(Token::Number(x as _));
         }
 
         None
@@ -196,7 +210,7 @@ impl State {
 }
 
 fn parse_number(src: &[u8]) -> Option<(usize, f64)> {
-    let len = src.iter().position(|x| x != &b'.' && !x.is_ascii_digit()).unwrap();
+    let len = src.iter().position(|x| x != &b'.' && !x.is_ascii_digit()).unwrap_or(src.len());
     src[..len].iter().map(|&x| x as char).collect::<String>().parse().ok().map(|x| (len, x))
 }
 
@@ -205,8 +219,11 @@ mod tests {
     use super::*;
     #[test]
     fn test_number() {
-        assert_eq!(parse(b"1 2 3 4").get_next_token().unwrap(), Token::Number(1.));
+        assert_eq!(parse(b"1").get_next_token().unwrap(), Token::Number(1.));
+        assert_eq!(parse(b"1.5").get_next_token().unwrap(), Token::Number(1.5));
         assert_eq!(parse(b"1.5 2 3 4").get_next_token().unwrap(), Token::Number(1.5));
+        assert_eq!(parse(b"42").get_next_token().unwrap(), Token::Number(42.));
+        assert_eq!(parse(b"6 6").get_next_token().unwrap(), Token::Number(6.));
     }
     #[test]
     fn test_object() {
