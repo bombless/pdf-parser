@@ -1,4 +1,5 @@
 
+use std::collections::VecDeque;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
@@ -36,12 +37,14 @@ impl State {
 
         let mut comment : Option<(usize, Vec<u8>)> = None;
 
-        let mut usize_queue = vec![];
+        let mut usize_stack = VecDeque::new();
 
         let mut token = None;
         
         let mut proc =
-                |curr :&[u8], token: &mut Option<Token>, index| {
+                |curr :&[_], token: &mut Option<_>, index, tokens_waiting: &mut VecDeque<_>| {
+
+
             let byte = curr[0];
 
             let mut comment_end = false;
@@ -72,17 +75,17 @@ impl State {
             }
 
             if curr.starts_with(b"<<") {
-                *token = Some(Token::DictStart);
+                token.replace(Token::DictStart);
                 return 2;
             }
 
             if c == '[' {
-                *token = Some(Token::ListStart);
+                token.replace(Token::ListStart);
                 return 1;
             }
 
             if curr.starts_with(b"\nstream\n") {
-                *token = Some(Token::StreamStart);
+                token.replace(Token::StreamStart);
                 return "\nstream\n".len();
             }
 
@@ -93,7 +96,7 @@ impl State {
                     if curr[1].is_ascii_digit() {
                         return 0;
                     } else {
-                        usize_queue.push(n);
+                        usize_stack.push_back(n);
                         return 1;
                     }
                 }
@@ -101,35 +104,68 @@ impl State {
                 let mut n = n;
 
                 for i in 1 .. curr.len() {
-                    if !curr[i].is_ascii_digit() {
-                        usize_queue.push(n);
+                    if curr[i].is_ascii_digit() {
+                        n = n * 10 + (curr[i] - b'0') as usize;
+                        continue;
+                    }
+                    if curr[i] != b'.' {
+                        usize_stack.push_back(n);
+                        if usize_stack.len() > 2 {
+                            token.replace(Token::Number(usize_stack.pop_front().unwrap() as _));
+                        }
                         return i;
                     }
-                    n = n * 10 + (curr[i] - b'0') as usize;
+                    let (len, n) = parse_number(curr);
+                    if !usize_stack.is_empty() {
+                        let numbers = usize_stack
+                            .drain(..)
+                            .map(|x| Token::Number( x as f64));
+                        tokens_waiting.extend(numbers);
+                    }
+                    tokens_waiting.push_back(Token::Number(n));
+                    return len;
                 }
                 return curr.len();
             }
 
             if curr.starts_with(b"obj\n") {
-                if usize_queue.len() == 2 {
-                    *token = Some(Token::ObjectStart((usize_queue[0], usize_queue[1])));
-                    usize_queue.clear();
+                if usize_stack.len() == 2 {
+                    token.replace(Token::ObjectStart((usize_stack[0], usize_stack[1])));
+                    usize_stack.clear();
                     return "obj\n".len();
                 }
                 return 0;
+            }
+
+            if curr.starts_with(b"R") {
+                if usize_stack.len() == 2 {
+                    token.replace(Token::Ref((usize_stack[0], usize_stack[1])));
+                    usize_stack.clear();
+                    return "R\n".len();
+                }
+                return 0;
+            }
+
+            if usize_stack.len() >= 2 {
+                token.replace(Token::Number(usize_stack.pop_front().unwrap() as _));
             }
 
             return 0;
         };
 
         while self.index < self.store.len() {
+
+            let mut tokens_waiting = VecDeque::new();
             let curr = &self.store[..][self.index..];
-            let step = proc(curr, &mut token, self.index);
-            if step == 0 { return None; }
-            self.index += step;
+            let step = proc(curr, &mut token, self.index, &mut tokens_waiting);
             if token.is_some() {
                 return token;
             }
+            if let Some(x) = tokens_waiting.pop_front() {
+                return Some(x);
+            }
+            if step == 0 { return None; }
+            self.index += step;
         }
 
         None
@@ -153,4 +189,22 @@ impl State {
             false
         }        
     }
+}
+
+fn parse_number(src: &[u8]) -> (usize, f64) {
+    unimplemented!()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_number() {
+        assert_eq!(parse(b"1 2 3 4").get_next_token().unwrap(), Token::Number(1.));
+    }
+    #[test]
+    fn test_object() {
+        assert_eq!(parse(b"1 2 obj\n").get_next_token().unwrap(), Token::ObjectStart((1, 2)));
+    }
+
 }
