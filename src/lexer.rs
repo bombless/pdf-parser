@@ -1,6 +1,5 @@
 
 use std::collections::VecDeque;
-use std::ops::Deref;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
@@ -52,6 +51,12 @@ pub fn parse(src: &[u8]) -> State {
 }
 
 impl State {
+    pub fn index(&self) -> usize {
+        self.index
+    }
+    pub fn len(&self) -> usize {
+        self.store.len()
+    }
     pub fn get_next_token(&mut self) -> Option<Token> {
         use std::mem::take;
 
@@ -270,8 +275,17 @@ impl State {
             let curr = &self.store[..][self.index..];
             let step = proc(curr, &mut token, &mut self.comments, self.index, &mut self.tokens_waiting, &mut self.usize_stack);
             self.index += step;
-            if token.is_some() {
-                return token;
+            if self.index > 339 {
+                println!("hey");
+            }
+            if let Some(token) = token {
+                return match self.pop_stacks() {
+                    None => Some(token),
+                    x => {
+                        self.tokens_waiting.push_back(token);
+                        x
+                    }
+                };
             }
             // let item = self.pop_stacks();
             // if item.is_some() {
