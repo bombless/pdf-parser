@@ -77,6 +77,10 @@ impl State {
             return self.pop_stacks();
         }
 
+        if self.usize_stack.is_empty() && !self.tokens_waiting.is_empty() {
+            return self.pop_stacks();
+        }
+
         let mut prev_ctx = Ctx::None;
         let mut curr_ctx = Ctx::None;
         
@@ -274,16 +278,17 @@ impl State {
             let mut token = None;
             let curr = &self.store[..][self.index..];
             let step = proc(curr, &mut token, &mut self.comments, self.index, &mut self.tokens_waiting, &mut self.usize_stack);
-            self.index += step;
             if self.index > 339 {
                 println!("hey");
             }
+            self.index += step;
             if let Some(token) = token {
                 return match self.pop_stacks() {
                     None => Some(token),
-                    x => {
+                    Some(x) => {
+                        println!("x: {x:?}");
                         self.tokens_waiting.push_back(token);
-                        x
+                        Some(x)
                     }
                 };
             }
@@ -331,6 +336,13 @@ impl State {
 fn parse_number(src: &[u8]) -> Option<(usize, f64)> {
     let len = src.iter().position(|x| x != &b'.' && x != &b'-' && !x.is_ascii_digit()).unwrap_or(src.len());
     src[..len].iter().map(|&x| x as char).collect::<String>().parse().ok().map(|x| (len, x))
+}
+
+impl Iterator for State {
+    type Item = Token;
+    fn next(&mut self) -> Option<Token> {
+        self.get_next_token()
+    }
 }
 
 #[cfg(test)]
@@ -384,6 +396,12 @@ mod tests {
     fn test_key_or_string() {
         assert_eq!(&parse(b"/abc").get_next_token().unwrap(), "abc");
         assert_eq!(&parse(b"(I love you)").get_next_token().unwrap(), "I love you");
+    }
+    #[test]
+    fn test_dict_value_0() {
+        use Token::*;
+        let expr = [DictStart, Key("abc".into()), Number(0.), DictEnd];
+        assert_eq!(parse(b"<</abc 0>>").collect::<Vec<_>>(), expr);
     }
 
 }
