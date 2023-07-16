@@ -276,7 +276,7 @@ impl State {
                     }
                     token.replace(Token::Ref((usize_stack[0], usize_stack[1])));
                     usize_stack.clear();
-                    return "R\n".len();
+                    return "R".len();
                 }
                 return 0;
             }
@@ -438,6 +438,22 @@ mod tests {
         use Token::*;
         let expr = [DictStart, Key("abc".into()), Number(0.), DictEnd];
         assert_eq!(parse(b"<</abc 0>>").collect::<Vec<_>>(), expr);
+    }
+
+    #[test]
+    fn test_mixed() {
+        use Token::*;
+        let expr = [
+            DictStart,
+            Key("a".into()),
+            ListStart,
+            Ref((4, 0)),
+            ListEnd,
+            Key("b".into()),
+            Ref((6, 0)),
+            DictEnd,
+        ];
+        assert_eq!(parse(b"<< /a [4 0 R] /b 6 0 R >>").collect::<Vec<_>>(), expr);
     }
 
 }
