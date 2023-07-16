@@ -316,23 +316,32 @@ impl State {
 
         None
     }
-    pub fn get_fixed_length_stream(&mut self, size: usize, buf: &mut Vec<u8>) -> bool {
+    pub fn get_fixed_length_stream(&mut self, size: usize, buf: &mut Vec<u8>) -> usize {
         if self.store.len() < size + self.index {
-            return false;
+            return 0;
         }
         buf.extend(&self.store[self.index..size]);
-        true
+        self.index += size;
+        size
     }
-    pub fn get_flate_stream(&mut self, buf: &mut Vec<u8>) -> bool {
+    pub fn get_flate_stream(&mut self, buf: &mut Vec<u8>) -> usize {
         const END: &'static [u8] = b"\nendstream\n;";
         const LEN: usize = END.len();
 
+        fn decode(data: &[u8], buf: &mut Vec<u8>) -> usize {
+            use std::io::Read;
+            use flate2::bufread::ZlibDecoder;
+        
+            let mut decoder = ZlibDecoder::new(data);
+            
+            decoder.read_to_end(buf).unwrap()
+        }
+
         if let Some(pos) = self.store[..][self.index..].windows(LEN).position(|x| x.starts_with(END)) {
-            buf.extend(&self.store[..pos]);
-            true
+            decode(&self.store[..pos], buf) 
         } else {
-            false
-        }        
+            0
+        }
     }
 }
 
