@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use super::lexer::{Token, self};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Value {
     Number(f64),
     String(String),
@@ -134,10 +134,15 @@ impl State {
             ListStart => {
                 let mut ret = Vec::new();
                 loop {
-                    let token = self.lexer.next();
-                    if token == Some(ListEnd) {
+                    let token = if let Some(x) = self.lexer.next() {
+                        x
+                    } else {
+                        return Err("unexpected EOF".into());
+                    };
+                    if token == ListEnd {
                         return Ok(Value::List(ret));
                     }
+                    self.lexer.swallow(token);
                     let value = self.parse_value()?;
                     ret.push(value);
                 }
@@ -145,4 +150,28 @@ impl State {
         }
     }
 
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn parse_list() {
+        let mut state = State {
+            lexer: lexer::parse(b"[1]"),
+            objects: HashMap::new(),
+        };
+        assert_eq!(state.parse_value().unwrap(), Value::List(vec![Value::Number(1.0)]))
+    }
+    #[test]
+    fn parse_dict() {
+        let mut state = State {
+            lexer: lexer::parse(b"<< /Value 42 >>"),
+            objects: HashMap::new(),
+        };
+        let value = state.parse_value().unwrap();
+        let value = match value { Value::Dict(d) => d, _ => panic!() };
+        assert_eq!(value.len(), 1);
+        assert_eq!(value.into_iter().next().unwrap(), ("Value".into(), Value::Number(42.)));
+    }
 }
