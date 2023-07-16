@@ -213,13 +213,13 @@ impl State {
             if c.is_digit(10) {
                 let n = (byte - b'0') as usize;
 
-                if n == 0  {
-                    if curr[1].is_ascii_digit() {
-                        return 0;
+                if n == 0 && curr[1] != b'.' {
+                    return if curr[1].is_ascii_digit() {
+                        0
                     } else {
                         usize_stack.push_back(n);
-                        return 1;
-                    }
+                        1
+                    };
                 }
                 
                 let mut n = n;
@@ -398,6 +398,7 @@ mod tests {
     use super::*;
     #[test]
     fn test_number() {
+        assert_eq!(parse(b"0.9505").get_next_token().unwrap(), Token::Number(0.9505));
         assert_eq!(parse(b"1").get_next_token().unwrap(), Token::Number(1.));
         assert_eq!(parse(b"-1").get_next_token().unwrap(), Token::Number(-1.));
         assert_eq!(parse(b"1.5").get_next_token().unwrap(), Token::Number(1.5));
@@ -466,6 +467,15 @@ mod tests {
             DictEnd,
         ];
         assert_eq!(parse(b"<< /a [4 0 R] /b 6 0 R >>").collect::<Vec<_>>(), expr);
+
+        let expr = [
+            ListStart,
+            Number(0.9505),
+            Number(1.),
+            Number(1.0888),
+            ListEnd,
+        ];
+        assert_eq!(parse(b"[0.9505 1 1.0888]").collect::<Vec<_>>(), expr)
     }
 
 }
