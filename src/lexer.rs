@@ -234,7 +234,10 @@ impl State {
             }
 
             if curr.starts_with(b"obj\n") {
-                if usize_stack.len() == 2 {
+                if usize_stack.len() >= 2 {
+                    while usize_stack.len() > 2 {
+                        tokens_waiting.push_back(Token::Number(usize_stack.pop_front().unwrap() as _));
+                    }
                     token.replace(Token::ObjectStart((usize_stack[0], usize_stack[1])));
                     usize_stack.clear();
                     return "obj\n".len();
@@ -243,7 +246,10 @@ impl State {
             }
 
             if curr.starts_with(b"R") {
-                if usize_stack.len() == 2 {
+                if usize_stack.len() >= 2 {
+                    while usize_stack.len() > 2 {
+                        tokens_waiting.push_back(Token::Number(usize_stack.pop_front().unwrap() as _));
+                    }
                     token.replace(Token::Ref((usize_stack[0], usize_stack[1])));
                     usize_stack.clear();
                     return "R\n".len();
@@ -278,9 +284,6 @@ impl State {
             let mut token = None;
             let curr = &self.store[..][self.index..];
             let step = proc(curr, &mut token, &mut self.comments, self.index, &mut self.tokens_waiting, &mut self.usize_stack);
-            if self.index > 339 {
-                println!("hey");
-            }
             self.index += step;
             if let Some(token) = token {
                 return match self.pop_stacks() {
