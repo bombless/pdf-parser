@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use super::lexer::{Token, self};
+use std::fmt;
 
 #[derive(Debug, PartialEq)]
 pub enum Value {
@@ -17,18 +18,29 @@ pub struct Object {
     stream: Vec<u8>,
 }
 
+impl fmt::Debug for Object {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Object({:?}, {} keys, stream length {})\n", self.id, self.dict.len(), self.stream.len())
+    }
+}
+
 pub struct State {
     lexer: lexer::State,
     objects: HashMap<(usize, usize), Object>,
 }
 
-pub fn parse(source: &[u8]) -> Result<Vec<Object>, String> {
+pub fn parse(source: &[u8]) -> Result<HashMap<(usize, usize), Object>, String> {
     let mut state = State {
         lexer: lexer::parse(source),
         objects: HashMap::new(),
     };
 
     loop {
+
+        if state.lexer.is(Token::XRef) {
+            return Ok(state.objects);
+        }
+
         let id = state.expect_obj_start()?;
         let dict = state.parse_dict()?;
         let mut stream = Vec::new();
@@ -40,10 +52,8 @@ pub fn parse(source: &[u8]) -> Result<Vec<Object>, String> {
                 _ => false,
             };
             if is_encoded {
-                println!("get_flate_stream");
                 state.lexer.get_flate_stream(&mut stream);
             } else {
-                println!("get_fixed_length_stream");
                 let len = if let Some(Value::Number(n)) = dict.get("Length") {
                     *n as _
                 } else {
@@ -57,8 +67,20 @@ pub fn parse(source: &[u8]) -> Result<Vec<Object>, String> {
         else if next != Some(Token::ObjectEnd) {
             return Err(format!("unexpected {next:?}"));
         }
+        // else if next == Some(Token::XRef) {
+        //     let starting = if let Some(Token::Number(x)) = state.next_token() {
+        //         x as usize
+        //     } else {
+        //         return Err("xref parsing error".into());
+        //     };
+        //     let count = if let Some(Token::Number(x)) = state.next_token() {
+        //         x as usize
+        //     } else {
+        //         return Err("xref parsing error".into());
+        //     };
+        // }
 
-        println!("object {:?} parsed {:?}", id, dict);
+        // println!("object {:?} parsed {:?}", id, dict);
 
         state.objects.insert(id, Object {
             id,
@@ -72,13 +94,7 @@ pub fn parse(source: &[u8]) -> Result<Vec<Object>, String> {
 impl State {
 
     fn next_token(&mut self) -> Option<Token> {
-        let ret = self.lexer.next();
-        let index = self.lexer.index();
-        // if index < 0x400 {
-        //     return ret;
-        // }
-        println!("index {:x}, next_token:{ret:?}", index);
-        ret
+        self.lexer.next()
     }
 
     fn swallow_token(&mut self, t: Token) {
@@ -145,7 +161,7 @@ impl State {
             Key(s) => return Ok(Value::Key(s)),
             Ref((major, version)) => return Ok(Value::Ref(major, version)),
             Number(n) => return Ok(Value::Number(n)),
-            x @(DictEnd | ListEnd | StreamStart | StreamEnd | ObjectStart(..) | ObjectEnd) =>
+            x @(DictEnd | ListEnd | StreamStart | StreamEnd | ObjectStart(..) | ObjectEnd | XRef) =>
                 panic!("unexpected {x}"),
             DictStart => {
                 self.swallow_token(DictStart);

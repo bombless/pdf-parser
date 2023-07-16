@@ -16,24 +16,26 @@ pub enum Token {
     ObjectEnd,
     Ref((usize, usize)),
     Number(f64),
+    XRef,
 }
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Token::*;
         match self {
-            StringLiteral(s) => write!(f, "{:?}", s),
-            Key(s) => write!(f, "/{}", s),
+            StringLiteral(s) => write!(f, "{s:?}"),
+            Key(s) => write!(f, "/{s}"),
             DictStart => write!(f, "DictStart"),
             DictEnd => write!(f, "DictEnd"),
             ListStart => write!(f, "ListStart"),
             ListEnd => write!(f, "ListEnd"),
             StreamStart => write!(f, "StreamStart"),
             StreamEnd => write!(f, "StreamEnd"),
-            ObjectStart(id) => write!(f, "ObjectStart{:?}", id),
+            ObjectStart(id) => write!(f, "ObjectStart{id:?}"),
             ObjectEnd => write!(f, "ObjectEnd"),
-            Ref(id) => write!(f, "Ref{:?}", id),
-            Number(n) => write!(f, "Number({})", n),
+            Ref(id) => write!(f, "Ref{id:?}"),
+            Number(n) => write!(f, "Number({n})"),
+            XRef => write!(f, "xref"),
         }
     }
 }
@@ -77,6 +79,23 @@ impl State {
     }
     pub fn len(&self) -> usize {
         self.store.len()
+    }
+    pub fn is(&mut self, t: Token) -> bool {
+        if !self.tokens_waiting.is_empty() {
+            return Some(&t) == self.tokens_waiting.get(0);
+        }
+        let next = self.next();
+        match next {
+            None => false,
+            Some(next) if next != t => {
+                self.tokens_waiting.push_front(next);
+                false
+            }
+            _ => {
+                self.tokens_waiting.push_front(t);
+                true
+            }
+        }
     }
     pub fn swallow(&mut self, t: Token) {
         self.tokens_waiting.push_front(t);
@@ -307,6 +326,11 @@ impl State {
             if curr.starts_with(b"endobj\n") {
                 token.replace(Token::ObjectEnd);
                 return "endobj\n".len();
+            }
+
+            if curr.starts_with(b"xref\n") {
+                token.replace(Token::XRef);
+                return b"xref\n".len();
             }
             
             if c.is_whitespace() {
