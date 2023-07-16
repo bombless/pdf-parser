@@ -281,19 +281,32 @@ impl State {
                 return 0;
             }
 
+            if curr.starts_with(b"endstream\n") {
+                assert_eq!(0, usize_stack.len());
+                assert_eq!(0, tokens_waiting.len());
+                token.replace(Token::StreamEnd);
+                return b"endstream\n".len();
+            }
+
             if c == ']' {
-                token.replace(Token::ListEnd);
+                while !usize_stack.is_empty() {
+                    tokens_waiting.push_back(Token::Number(usize_stack.pop_front().unwrap() as _));
+                }
+                tokens_waiting.push_back(Token::ListEnd);
                 return 1;
             }
 
             if curr.starts_with(b">>") {
-                token.replace(Token::DictEnd);
+                while !usize_stack.is_empty() {
+                    tokens_waiting.push_back(Token::Number(usize_stack.pop_front().unwrap() as _));
+                }
+                tokens_waiting.push_back(Token::DictEnd);
                 return 2;
             }
 
-            if curr.starts_with(b"\nendobj\n") {
+            if curr.starts_with(b"endobj\n") {
                 token.replace(Token::ObjectEnd);
-                return "\nendobj\n".len();
+                return "endobj\n".len();
             }
             
             if c.is_whitespace() {
@@ -313,7 +326,6 @@ impl State {
                 return match self.pop_stacks() {
                     None => Some(token),
                     Some(x) => {
-                        println!("x: {x:?}");
                         self.tokens_waiting.push_back(token);
                         Some(x)
                     }
@@ -344,7 +356,7 @@ impl State {
         if self.store.len() < size + self.index {
             return 0;
         }
-        buf.extend(&self.store[self.index..size]);
+        buf.extend(&self.store[self.index..self.index+size]);
         self.index += size;
         size
     }
