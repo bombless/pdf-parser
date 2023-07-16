@@ -1,5 +1,7 @@
-use std::{collections::HashMap, hash::Hash};
+use std::collections::HashMap;
 use super::lexer::{Token, self};
+
+#[derive(Debug)]
 pub enum Value {
     Number(f64),
     String(String),
@@ -20,7 +22,7 @@ pub struct State {
     objects: HashMap<(usize, usize), Object>,
 }
 
-pub fn parse(source: &[u8]) -> Result<Vec<Object>, ()> {
+pub fn parse(source: &[u8]) -> Result<Vec<Object>, String> {
     let mut state = State {
         lexer: lexer::parse(source),
         objects: HashMap::new(),
@@ -43,7 +45,7 @@ pub fn parse(source: &[u8]) -> Result<Vec<Object>, ()> {
                 let len = if let Some(Value::Number(n)) = dict.get("Length") {
                     *n as _
                 } else {
-                    return Err(());
+                    return Err("where's .. length?".into());
                 };
                 state.lexer.get_fixed_length_stream(len, &mut stream);
             }
@@ -55,65 +57,80 @@ pub fn parse(source: &[u8]) -> Result<Vec<Object>, ()> {
             dict,
             stream,
         });
+
+        println!("object {:?} parsed", id);
     }
 }
 
 impl State {
 
-    fn expect_obj_start(&mut self) -> Result<(usize, usize), ()> {
+    fn expect_obj_start(&mut self) -> Result<(usize, usize), String> {
         if let Some(Token::ObjectStart(id)) = self.lexer.get_next_token() {
             return Ok(id)
         }
-        Err(())
+        Err("expected ObjStart".into())
     }
 
-    fn expect_obj_end(&mut self) -> Result<(), ()> {
+    fn expect_obj_end(&mut self) -> Result<(), String> {
         if let Some(Token::ObjectEnd) = self.lexer.get_next_token() {
             return Ok(())
         }
-        Err(())
+        Err("expected ObjEnd".into())
     }
 
-    fn expect_stream_end(&mut self) -> Result<(), ()> {
+    fn expect_stream_end(&mut self) -> Result<(), String> {
         if let Some(Token::StreamEnd) = self.lexer.get_next_token() {
             return Ok(())
         }
-        Err(())
+        Err("expected StreamEnd".into())
     }
 
-    fn parse_dict(&mut self) -> Result<HashMap<String, Value>, ()> {
+    fn expect_dict_start(&mut self) -> Result<(), String> {
+        if let Some(Token::DictStart) = self.lexer.get_next_token() {
+            return Ok(())
+        }
+        Err("expected DictStart".into())
+    }
+
+    fn parse_dict(&mut self) -> Result<HashMap<String, Value>, String> {
         use Token::*;
         let mut ret = HashMap::new();
+        self.expect_dict_start()?;
         loop {
             let token = self.lexer.next();
             if token == Some(DictEnd) {
                 return Ok(ret);
             }
-            let key = if let Some(Key(s)) = self.lexer.next() {
+            let key = if let Some(Key(s)) = token {
                 s
             } else {
-                return Err(());
+                return Err("expected Key".into());
             };
             let value = self.parse_value()?;
+            println!("({}, {:?})", &key, &value);
             ret.insert(key, value);
         }
     }
 
-    fn parse_value(&mut self) -> Result<Value, ()> {
+    fn parse_value(&mut self) -> Result<Value, String> {
         use Token::*;
         let token = if let Some(x) = self.lexer.next() {
             x
         } else {
-            return Err(());
+            return Err("expected token".into());
         };
+        println!("token {}", token);
         match token {
             StringLiteral(s) => return Ok(Value::String(s)),
             Key(s) => return Ok(Value::Key(s)),
-            StringLiteral(s) => return Ok(Value::String(s)),
             Ref((major, version)) => return Ok(Value::Ref(major, version)),
             Number(n) => return Ok(Value::Number(n)),
-            DictEnd | ListEnd | StreamStart | StreamEnd | ObjectStart(..) | ObjectEnd => return Err(()),
-            DictStart => self.parse_dict().map(Value::Dict),
+            x @(DictEnd | ListEnd | StreamStart | StreamEnd | ObjectStart(..) | ObjectEnd) =>
+                panic!("unexpected {x}"),
+            DictStart => {
+                self.lexer.swallow(DictStart);
+                self.parse_dict().map(Value::Dict)
+            }
             ListStart => {
                 let mut ret = Vec::new();
                 loop {

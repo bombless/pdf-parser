@@ -1,5 +1,6 @@
 
 use std::collections::VecDeque;
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
@@ -15,6 +16,26 @@ pub enum Token {
     ObjectEnd,
     Ref((usize, usize)),
     Number(f64),
+}
+
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use Token::*;
+        match self {
+            StringLiteral(s) => write!(f, "{:?}", s),
+            Key(s) => write!(f, "/{}", s),
+            DictStart => write!(f, "DictStart"),
+            DictEnd => write!(f, "DictEnd"),
+            ListStart => write!(f, "ListStart"),
+            ListEnd => write!(f, "ListEnd"),
+            StreamStart => write!(f, "StreamStart"),
+            StreamEnd => write!(f, "StreamEnd"),
+            ObjectStart(id) => write!(f, "ObjectStart{:?}", id),
+            ObjectEnd => write!(f, "ObjectEnd"),
+            Ref(id) => write!(f, "Ref{:?}", id),
+            Number(n) => write!(f, "Number({})", n),
+        }
+    }
 }
 
 impl PartialEq<str> for Token {
@@ -56,6 +77,9 @@ impl State {
     }
     pub fn len(&self) -> usize {
         self.store.len()
+    }
+    pub fn swallow(&mut self, t: Token) {
+        self.tokens_waiting.push_front(t);
     }
     pub fn get_next_token(&mut self) -> Option<Token> {
         use std::mem::take;
