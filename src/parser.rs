@@ -38,8 +38,14 @@ pub fn parse(source: &[u8]) -> Result<HashMap<(usize, usize), Object>, String> {
     loop {
 
         if state.lexer.is(Token::XRef) {
+            state.lexer.next();
             while let Some(line) = state.lexer.get_ascii_line() {
                 println!("{line}");
+                if line == "trailer" {
+                    let meta = state.parse_dict()?;
+                    println!("{meta:?}");
+                    return Ok(state.objects);
+                }
             }
             return Ok(state.objects);
         }
@@ -115,10 +121,11 @@ impl State {
     }
 
     fn expect_dict_start(&mut self) -> Result<(), String> {
-        if let Some(Token::DictStart) = self.next_token() {
+        let t = self.next_token();
+        if let Some(Token::DictStart) = t {
             return Ok(())
         }
-        Err("expected DictStart".into())
+        Err(format!("expected DictStart, got {t:?}"))
     }
 
     fn parse_dict(&mut self) -> Result<HashMap<String, Value>, String> {
@@ -133,7 +140,7 @@ impl State {
             let key = if let Some(Key(s)) = token {
                 s
             } else {
-                return Err("expected Key".into());
+                return Err(format!("expected Key, got {token:?}"));
             };
             let value = self.parse_value()?;
             ret.insert(key, value);
@@ -190,6 +197,20 @@ mod tests {
             objects: HashMap::new(),
         };
         assert_eq!(state.parse_value().unwrap(), Value::List(vec![Value::Number(1.0)]))
+    }
+    #[test]
+    fn parse_trailer() {
+        let mut state = State {
+            lexer: lexer::parse(b"<<
+            /Size 12
+            /Root 11 0 R
+            /Info 9 0 R
+          >>"),
+            objects: HashMap::new(),
+        };
+        let value = state.parse_value().unwrap();
+        let value = match value { Value::Dict(d) => d, _ => panic!() };
+        assert_eq!(value.len(), 3);
     }
     #[test]
     fn parse_dict() {

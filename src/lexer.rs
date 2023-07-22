@@ -319,7 +319,7 @@ impl State {
                 while !usize_stack.is_empty() {
                     tokens_waiting.push_back(Token::Number(usize_stack.pop_front().unwrap() as _));
                 }
-                tokens_waiting.push_back(Token::DictEnd);
+                token.replace(Token::DictEnd);
                 return 2;
             }
 
