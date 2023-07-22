@@ -43,7 +43,13 @@ pub fn parse(source: &[u8]) -> Result<HashMap<(usize, usize), Object>, String> {
                 println!("{line}");
                 if line == "trailer" {
                     let meta = state.parse_dict()?;
-                    println!("{meta:?}");
+                    let root = if let Some(&Value::Ref(major, minor)) = meta.get("Root") {
+                        (major, minor)
+                    } else {
+                        unreachable!()
+                    };
+                    let root = state.objects.get(&root).unwrap();
+                    println!("{:?}", root.dict);
                     return Ok(state.objects);
                 }
             }
