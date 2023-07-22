@@ -16,4 +16,8 @@ fn main() {
             println!();
         }
     }
+
+    for (name, obj) in pdf.get_fonts() {
+        println!("font {name} {:?}", obj.dict());
+    }
 }

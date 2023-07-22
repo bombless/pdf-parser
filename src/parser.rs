@@ -103,6 +103,37 @@ impl PDF {
         }
         ret
     }
+
+    pub fn get_fonts(&self) -> HashMap<&str, &Object> {
+        let pages = if let Some(x) = self.get_pages() {
+            &x.dict
+        } else {
+            return HashMap::new();
+        };
+        let resources = if let Some(Value::Dict(x)) = pages.get("Resources") {
+            x
+        } else {
+            return HashMap::new();
+        };
+        let fonts = resources.get("Font");
+        if let Some(Value::Dict(x)) = fonts {
+            let mut ret = HashMap::new();
+            for (k, v) in x {
+                let r = if let &Value::Ref(m, n) = v {
+                    let r = self.objects.get(&(m, n));
+                    match r {
+                        Some(x) => x,
+                        None => continue,
+                    }
+                } else {
+                    continue;
+                };
+                ret.insert(&**k, r);
+            }
+            return ret;
+        }
+        HashMap::new()
+    }
 }
 
 pub fn parse(source: &[u8]) -> Result<PDF, String> {
