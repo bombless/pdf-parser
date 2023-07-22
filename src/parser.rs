@@ -13,9 +13,15 @@ pub enum Value {
 }
 
 pub struct Object {
-    pub id: (usize, usize),
-    pub dict: HashMap<String, Value>,
-    pub stream: Vec<u8>,
+    id: (usize, usize),
+    dict: HashMap<String, Value>,
+    stream: Vec<u8>,
+}
+
+impl Object {
+    pub fn dict(&self) -> &HashMap<String, Value> {
+        &self.dict
+    }
 }
 
 impl fmt::Debug for Object {
@@ -26,14 +32,63 @@ impl fmt::Debug for Object {
 
 pub struct State {
     lexer: lexer::State,
-    objects: HashMap<(usize, usize), Object>,
 }
 
-pub fn parse(source: &[u8]) -> Result<HashMap<String, Value>, String> {
+pub struct PDF {
+    objects: HashMap<(usize, usize), Object>,
+    meta: HashMap<String, Value>,
+}
+
+impl PDF {
+    pub fn get_pages(&self) -> Option<&Object> {
+        let root = if let Some(&Value::Ref(major, minor)) = self.meta.get("Root") {
+            (major, minor)
+        } else {
+            return None;
+        };
+        let root = self.objects.get(&root).unwrap();
+        let pages = if let Some(&Value::Ref(major, minor)) = root.dict.get("Pages") {
+            (major, minor)
+        } else {
+            return None;
+        };
+        self.objects.get(&pages)
+    }
+
+    pub fn get_pages_kids(&self) -> Option<Vec<&Object>> {
+        let kids = if let Some(x) = self.get_pages() {
+            if let Some(Value::List(list)) = x.dict.get("Kids") {
+                list
+            } else {
+                return None;
+            }
+        } else {
+            return None;
+        };
+
+        let mut iter = kids.into_iter();
+
+        let mut ret = Vec::new();
+
+        while let Some(x) = iter.next() {
+            if let &Value::Ref(major, minor) = x {
+                ret.push(self.objects.get(&(major, minor))?);
+            } else {
+                return None;
+            }
+        }
+
+        Some(ret)
+
+    }
+}
+
+pub fn parse(source: &[u8]) -> Result<PDF, String> {
     let mut state = State {
-        lexer: lexer::parse(source),
-        objects: HashMap::new(),
+        lexer: lexer::parse(source),        
     };
+
+    let mut objects = HashMap::new();
 
     loop {
 
@@ -43,20 +98,12 @@ pub fn parse(source: &[u8]) -> Result<HashMap<String, Value>, String> {
                 println!("{line}");
                 if line == "trailer" {
                     let meta = state.parse_dict()?;
-                    let root = if let Some(&Value::Ref(major, minor)) = meta.get("Root") {
-                        (major, minor)
-                    } else {
-                        unreachable!()
+                    let pdf = PDF {
+                        meta,
+                        objects,
                     };
-                    let root = state.objects.get(&root).unwrap();
-                    let pages = if let Some(&Value::Ref(major, minor)) = root.dict.get("Pages") {
-                        (major, minor)
-                    } else {
-                        unreachable!()
-                    };
-                    let pages = state.objects.get(&pages).unwrap();
-                    println!("pages {:?}", pages.dict);
-                    return Ok(pages.dict.clone());
+                    
+                    return Ok(pdf);
                 }
             }
             return Err("Something wrong".into());
@@ -91,7 +138,7 @@ pub fn parse(source: &[u8]) -> Result<HashMap<String, Value>, String> {
 
         // println!("object {:?} parsed {:?}", id, dict);
 
-        state.objects.insert(id, Object {
+        objects.insert(id, Object {
             id,
             dict,
             stream,
@@ -206,7 +253,6 @@ mod tests {
     fn parse_list() {
         let mut state = State {
             lexer: lexer::parse(b"[1]"),
-            objects: HashMap::new(),
         };
         assert_eq!(state.parse_value().unwrap(), Value::List(vec![Value::Number(1.0)]))
     }
@@ -218,7 +264,6 @@ mod tests {
             /Root 11 0 R
             /Info 9 0 R
           >>"),
-            objects: HashMap::new(),
         };
         let value = state.parse_value().unwrap();
         let value = match value { Value::Dict(d) => d, _ => panic!() };
@@ -228,7 +273,6 @@ mod tests {
     fn parse_dict() {
         let mut state = State {
             lexer: lexer::parse(b"<< /Value 42 >>"),
-            objects: HashMap::new(),
         };
         let value = state.parse_value().unwrap();
         let value = match value { Value::Dict(d) => d, _ => panic!() };
@@ -239,7 +283,6 @@ mod tests {
     fn parse_mix() {
         let mut state = State {
             lexer: lexer::parse(b"<< /a [4 0 R] /b 6 0 R >>"),
-            objects: HashMap::new(),
         };
         let value = state.parse_value().unwrap();
         let dict = match value { Value::Dict(d) => d, _ => panic!() };
