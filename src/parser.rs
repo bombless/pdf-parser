@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use super::lexer::{Token, self};
 use std::fmt;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Value {
     Number(f64),
     String(String),
@@ -29,7 +29,7 @@ pub struct State {
     objects: HashMap<(usize, usize), Object>,
 }
 
-pub fn parse(source: &[u8]) -> Result<HashMap<(usize, usize), Object>, String> {
+pub fn parse(source: &[u8]) -> Result<HashMap<String, Value>, String> {
     let mut state = State {
         lexer: lexer::parse(source),
         objects: HashMap::new(),
@@ -49,11 +49,17 @@ pub fn parse(source: &[u8]) -> Result<HashMap<(usize, usize), Object>, String> {
                         unreachable!()
                     };
                     let root = state.objects.get(&root).unwrap();
-                    println!("{:?}", root.dict);
-                    return Ok(state.objects);
+                    let pages = if let Some(&Value::Ref(major, minor)) = root.dict.get("Pages") {
+                        (major, minor)
+                    } else {
+                        unreachable!()
+                    };
+                    let pages = state.objects.get(&pages).unwrap();
+                    println!("pages {:?}", pages.dict);
+                    return Ok(pages.dict.clone());
                 }
             }
-            return Ok(state.objects);
+            return Err("Something wrong".into());
         }
 
         let id = state.expect_obj_start()?;
