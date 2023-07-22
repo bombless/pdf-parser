@@ -403,6 +403,36 @@ impl State {
             0
         }
     }
+    pub fn get_ascii_line(&mut self) -> Option<String> {
+        let mut i = 0;
+        let mut ret = String::new();
+        while self.index + i < self.store.len() && self.store[self.index + i].is_ascii() {
+            let byte = self.store[self.index + i];
+            if byte == b'\n' {
+                break;
+            }
+            ret.push(byte as _);
+            i += 1;
+        }
+
+        if self.index + i >= self.store.len() {
+            return if ret.is_empty() {
+                None
+            } else {
+                self.index += i + 1;
+                Some(ret)
+            };
+        }
+
+        if !self.store[self.index + i].is_ascii() {
+            return None;
+        }
+
+        self.index += i + 1;
+
+        Some(ret)
+
+    }
 }
 
 fn parse_number(src: &[u8]) -> Option<(usize, f64)> {

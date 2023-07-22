@@ -38,6 +38,9 @@ pub fn parse(source: &[u8]) -> Result<HashMap<(usize, usize), Object>, String> {
     loop {
 
         if state.lexer.is(Token::XRef) {
+            while let Some(line) = state.lexer.get_ascii_line() {
+                println!("{line}");
+            }
             return Ok(state.objects);
         }
 
@@ -67,18 +70,6 @@ pub fn parse(source: &[u8]) -> Result<HashMap<(usize, usize), Object>, String> {
         else if next != Some(Token::ObjectEnd) {
             return Err(format!("unexpected {next:?}"));
         }
-        // else if next == Some(Token::XRef) {
-        //     let starting = if let Some(Token::Number(x)) = state.next_token() {
-        //         x as usize
-        //     } else {
-        //         return Err("xref parsing error".into());
-        //     };
-        //     let count = if let Some(Token::Number(x)) = state.next_token() {
-        //         x as usize
-        //     } else {
-        //         return Err("xref parsing error".into());
-        //     };
-        // }
 
         // println!("object {:?} parsed {:?}", id, dict);
 
