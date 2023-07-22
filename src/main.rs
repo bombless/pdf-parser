@@ -7,4 +7,13 @@ fn main() {
     for k in kids {
         println!("kid {:?}", k.dict());
     }
+    for c in pdf.get_contents() {
+        println!("content {:?}", c);
+        if c.iter().all(u8::is_ascii) {
+            for &c in c {
+                print!("{}", c as char);
+            }
+            println!();
+        }
+    }
 }

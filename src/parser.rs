@@ -81,6 +81,28 @@ impl PDF {
         Some(ret)
 
     }
+
+    pub fn get_contents(&self) -> Vec<&[u8]> {
+        let contents = if let Some(x) = self.get_pages_kids() {
+            x
+        } else {
+            return Vec::new();
+        };
+        let mut ret = Vec::new();
+        for x in contents {
+            let c = if let Some(&Value::Ref(m, n)) = x.dict.get("Contents") {
+                if let Some(x) = self.objects.get(&(m, n)) {
+                    &x.stream[..]
+                } else {
+                    continue;
+                }
+            } else {
+                continue;
+            };
+            ret.push(c);
+        }
+        ret
+    }
 }
 
 pub fn parse(source: &[u8]) -> Result<PDF, String> {
