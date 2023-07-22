@@ -13,9 +13,9 @@ pub enum Value {
 }
 
 pub struct Object {
-    id: (usize, usize),
-    dict: HashMap<String, Value>,
-    stream: Vec<u8>,
+    pub id: (usize, usize),
+    pub dict: HashMap<String, Value>,
+    pub stream: Vec<u8>,
 }
 
 impl fmt::Debug for Object {
