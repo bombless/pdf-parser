@@ -45,4 +45,8 @@ fn main() {
     for (name, v) in references {
         println!("{name} {v:?}\n{:?}", v.dict())
     }
+
+    for (id, k, v) in pdf.get_references() {
+        println!("{:?} -> {} -> {:?}", id, k, v);
+    }
 }

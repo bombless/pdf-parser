@@ -44,6 +44,32 @@ pub struct PDF {
 }
 
 impl PDF {
+    pub fn get_references(&self) -> Vec<((usize, usize), &str, &Object)> {
+        let mut ret = Vec::new();
+        for (&id, o) in &self.objects {
+            for (k, v) in &o.dict {
+                match v {
+                    Value::Ref(m, n) => ret.push((id, &**k, self.objects.get(&(*m, *n)).unwrap())),
+                    x => self.get_references_from_value(x, id, &mut ret),
+                }
+            }
+        }
+        ret
+    }
+    fn get_references_from_value<'a>(&'a self, value: &'a Value, object_id: (usize, usize), buf: &mut Vec<((usize, usize), &'a str, &'a Object)>) {
+        match value {
+            Value::List(l) => for x in l{
+                self.get_references_from_value(x,  object_id, buf);
+            }
+            Value::Dict(dict) => for (k, v) in dict {
+                if let Value::Ref(m, n) = v {
+                    buf.push((object_id, k, self.objects.get(&(*m, *n)).unwrap()));
+                }
+            }
+            _ => {}
+        }
+
+    }
     pub fn get_pages(&self) -> Option<&Object> {
         let root = if let Some(&Value::Ref(major, minor)) = self.meta.get("Root") {
             (major, minor)
