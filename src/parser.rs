@@ -22,11 +22,15 @@ impl Object {
     pub fn dict(&self) -> &HashMap<String, Value> {
         &self.dict
     }
+
+    pub fn id(&self) -> (usize, usize) {
+        self.id
+    }
 }
 
 impl fmt::Debug for Object {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Object({:?}, {} keys, stream length {})\n", self.id, self.dict.len(), self.stream.len())
+        write!(f, "Object({:?}, {} keys, stream length {})", self.id, self.dict.len(), self.stream.len())
     }
 }
 
@@ -133,6 +137,40 @@ impl PDF {
             return ret;
         }
         HashMap::new()
+    }
+
+    pub fn get_descendant_fonts(&self) -> Vec<&Object> {
+        let mut ret = Vec::new();
+        for (_, f) in self.get_fonts() {
+            let dict = &f.dict;
+            if let Some(Value::List(f)) = dict.get("DescendantFonts") {
+                for x in f {
+                    if let &Value::Ref(m, n) = x {
+                        if let Some(x) = self.objects.get(&(m, n)) {
+                            ret.push(x);
+                        }
+                    }
+                }
+            }
+        }
+        ret
+    }
+
+    pub fn get_font_describtors(&self) -> Vec<&Object> {
+        let mut ret = Vec::new();
+        for o in self.get_descendant_fonts() {
+            let dict = &o.dict;
+            if let Some(&Value::Ref(m, n)) = dict.get("FontDescriptor") {
+                if let Some(x) = self.objects.get(&(m, n)) {
+                    ret.push(x);
+                }
+            }
+        }
+        ret
+    }
+
+    pub fn get(&self, id: &(usize, usize)) -> Option<&Object> {
+        self.objects.get(id)
     }
 }
 
