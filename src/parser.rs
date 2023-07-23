@@ -49,6 +49,12 @@ pub struct PDF {
 }
 
 impl PDF {
+    pub fn get_objects(&self) -> &HashMap<(usize, usize), Object> {
+        &self.objects
+    }
+    pub fn get_meta(&self) -> &HashMap<String, Value> {
+        &self.meta
+    }
     pub fn get_references(&self) -> Vec<((usize, usize), &str, &Object)> {
         let mut ret = Vec::new();
         for (&id, o) in &self.objects {
