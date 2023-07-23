@@ -30,7 +30,12 @@ impl Object {
 
 impl fmt::Debug for Object {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Object({:?}, {} keys, stream length {})", self.id, self.dict.len(), self.stream.len())
+        let name = if let Some(Value::Key(s)) = self.dict.get("Type") {
+            s.to_owned()
+        } else {
+            "".into()
+        };
+        write!(f, "Object({:?}, {name:?}, {} keys, stream length {})", self.id, self.dict.len(), self.stream.len())
     }
 }
 
