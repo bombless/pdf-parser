@@ -1,3 +1,20 @@
+fn print(s: &[u8]) {
+    let mut first = true;
+    for &x in s {
+        if first {
+            first = false;
+        } else {
+            print!(", ");
+        }
+        if x.is_ascii() {
+            print!("{}", x as char);
+        } else {
+            print!(" ");
+        }
+        print!("({:02x})", x);
+    }
+}
+
 fn main() {
     use pdf_parser::parser::{parse, Object, Value};
     use std::collections::HashMap;
@@ -9,12 +26,17 @@ fn main() {
     for k in kids {
         println!("kid {:?}", k.dict());
     }
+
+    println!("contents id {:?}", pdf.get_contents_id());
     for c in pdf.get_contents() {
         println!("content {:?}", c);
         if c.iter().all(u8::is_ascii) {
             for &c in c {
                 print!("{}", c as char);
             }
+            println!();
+        } else {
+            print(c);
             println!();
         }
     }

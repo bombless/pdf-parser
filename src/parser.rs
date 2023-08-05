@@ -55,29 +55,57 @@ impl PDF {
     pub fn get_meta(&self) -> &HashMap<String, Value> {
         &self.meta
     }
-    pub fn get_references(&self) -> Vec<((usize, usize), &str, &Object)> {
+    pub fn get_references(&self) -> Vec<((usize, usize), String, &Object)> {
         let mut ret = Vec::new();
         for (&id, o) in &self.objects {
             for (k, v) in &o.dict {
                 match v {
-                    Value::Ref(m, n) => ret.push((id, &**k, self.objects.get(&(*m, *n)).unwrap())),
-                    x => self.get_references_from_value(x, id, &mut ret),
+                    &Value::Ref(m, n) => {
+                        ret.push((id, k.to_string(), self.objects.get(&(m, n)).unwrap()));
+                    }
+                    Value::Dict(dict) => {
+                        self.get_references_from_dict(dict, id, &mut ret);
+                    }
+                    Value::List(l) => {
+                        self.get_references_from_list(l, format!("{}[]", k), id, &mut ret)
+                    }
+                    _ => {}
                 }
             }
         }
         ret
     }
-    fn get_references_from_value<'a>(&'a self, value: &'a Value, object_id: (usize, usize), buf: &mut Vec<((usize, usize), &'a str, &'a Object)>) {
-        match value {
-            Value::List(l) => for x in l{
-                self.get_references_from_value(x,  object_id, buf);
-            }
-            Value::Dict(dict) => for (k, v) in dict {
-                if let Value::Ref(m, n) = v {
-                    buf.push((object_id, k, self.objects.get(&(*m, *n)).unwrap()));
+    fn get_references_from_dict<'a>(&'a self, dict: &'a HashMap<String, Value>, object_id: (usize, usize), buf: &mut Vec<((usize, usize), String, &'a Object)>) {
+        for (k, v) in dict {
+            match v {
+                &Value::Ref(m, n) => {
+                    buf.push((object_id, k.to_string(), self.objects.get(&(m, n)).unwrap()));
                 }
+                Value::Dict(dict) => {
+                    self.get_references_from_dict(dict, object_id, buf);
+                }
+                Value::List(l) => {
+                    self.get_references_from_list(l, format!("{}[]", k), object_id, buf)
+                }
+                _ => {}
             }
-            _ => {}
+        }
+
+    }
+    fn get_references_from_list<'a, 'b>(&'a self, list: &'a [Value], name: String, object_id: (usize, usize), buf: &mut Vec<((usize, usize), String, &'a Object)>) {
+        for v in list {
+            match v {
+                &Value::Ref(m, n) => {
+                    buf.push((object_id, name.clone(), self.objects.get(&(m, n)).unwrap()));
+                }
+                Value::Dict(dict) => {
+                    self.get_references_from_dict(dict, object_id, buf);
+                }
+                Value::List(l) => {
+                    self.get_references_from_list(l, name.clone(), object_id, buf)
+                }
+                _ => {}
+            }
         }
 
     }
@@ -141,6 +169,24 @@ impl PDF {
                 continue;
             };
             ret.push(c);
+        }
+        ret
+    }
+
+    pub fn get_contents_id(&self) -> Vec<(usize, usize)> {
+        let contents = if let Some(x) = self.get_pages_kids() {
+            x
+        } else {
+            return Vec::new();
+        };
+        let mut ret = Vec::new();
+        for x in contents {
+            let id = if let Some(&Value::Ref(m, n)) = x.dict.get("Contents") {
+                (m, n)
+            } else {
+                continue;
+            };
+            ret.push(id);
         }
         ret
     }
