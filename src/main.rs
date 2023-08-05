@@ -25,6 +25,9 @@ fn main() {
     
     for k in kids {
         println!("kid {:?}", k.dict());
+        if let Some(&Value::Ref(m, n)) = k.dict().get("Contents") {
+            println!("{:?}", pdf.get_objects().get(&(m, n)).unwrap().dict());
+        }
     }
 
     println!("contents id {:?}", pdf.get_contents_id());
@@ -70,5 +73,18 @@ fn main() {
 
     for (id, k, v) in pdf.get_references() {
         println!("{:?} -> {} -> {:?}", id, k, v);
+    }
+
+    for (k, v) in pdf.get_objects() {
+        use std::io::Write;
+        use std::fs::File;
+        // print(v.stream());
+        if v.stream().is_empty() {
+            continue;
+        }
+        println!("{k:?}");
+        println!("{:?}", v.dict());
+        let mut f = File::create(&format!("{k:?}.bin")).unwrap();
+        f.write_all(v.stream()).unwrap();
     }
 }

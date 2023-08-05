@@ -26,6 +26,9 @@ impl Object {
     pub fn id(&self) -> (usize, usize) {
         self.id
     }
+    pub fn stream(&self) -> &[u8] {
+        &self.stream
+    }
 }
 
 impl fmt::Debug for Object {
