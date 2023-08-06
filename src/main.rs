@@ -3,7 +3,6 @@ use postscript::parser::collect;
 use std::collections::HashMap;
 
 fn main() {
-    use std::io::{Write, stdout};
     use pdf_parser::parser::{parse, Object, Value};
 
     let pdf = parse(include_bytes!("../attention.pdf")).unwrap();
@@ -12,20 +11,10 @@ fn main() {
 
     println!("pages {:?}", pdf.get_pages().map(Object::dict));
 
-    println!("contents id {:?}", pdf.get_contents_id());
-    for c in pdf.get_contents() {
-        println!("content {:?}", c);
-        stdout().write(c).unwrap();
-        println!();
-        // if c.iter().all(u8::is_ascii) {
-        //     for &c in c {
-        //         print!("{}", c as char);
-        //     }
-        //     println!();
-        // } else {
-        //     print(c);
-        //     println!();
-        // }
+    println!("pages kids {:?}", pdf.get_pages_kids());
+
+    for x in pdf.get_pages_grand_kids().unwrap() {
+        println!("grand kid {x:?} {:?}", x.dict());
     }
 
     for (name, obj) in pdf.get_fonts() {
@@ -53,22 +42,6 @@ fn main() {
 
     for (name, v) in references {
         println!("{name} {v:?}\n{:?}", v.dict())
-    }
-
-    for (id, k, v) in pdf.get_references() {
-        println!("{:?} -> {} -> {:?}", id, k, v);
-    }
-
-    for (k, v) in pdf.get_objects() {
-        use std::fs::File;
-        // print(v.stream());
-        if v.stream().is_empty() {
-            continue;
-        }
-        println!("{k:?}");
-        println!("{:?}", v.dict());
-        let mut f = File::create(&format!("{k:?}.bin")).unwrap();
-        f.write_all(v.stream()).unwrap();
     }
 
     let lines = pdf.get_cmaps_lines();
@@ -103,6 +76,22 @@ fn main() {
 
     for c in pdf.get_contents() {
         let mut lexer = postscript::lexer::parse(c);
+        while let Some(x) = lexer.next() {
+            match x {
+                Operator(op) if op == "BT" => {
+                    parse_bt(lexer, &babel);
+                    break;
+                }
+                _ => {}
+            }
+        }
+    }
+
+    for (_, name, obj) in pdf.get_references() {
+        if name != "Contents" {
+            continue;
+        }
+        let mut lexer = postscript::lexer::parse(obj.stream());
         while let Some(x) = lexer.next() {
             match x {
                 Operator(op) if op == "BT" => {

@@ -31,22 +31,28 @@ pub fn get_texts(state: State) -> Vec<Vec<Token>> {
 }
 
 
-pub fn parse_slice(mut slice: impl Iterator<Item=Token>, babel: &HashMap<u16, char>) -> String {
+pub fn parse_slice(mut slice: impl Iterator<Item=Token>, babel: &HashMap<u16, char>) -> Vec<String> {
     let c = slice.next().unwrap();
     if c != ListStart {
         panic!()
     }
 
-    let mut ret = String::new();
+    let mut ret = Vec::new();
 
     while let Some(x) = slice.next() {
         if let StringLiteral(bytes) = x {
+            if babel.is_empty() {
+                ret.push(String::from_utf8(bytes).unwrap());
+                continue;
+            }
             let mut i = 0;
+            let mut temp = String::new();
             loop {
                 let x = bytes[i] as u16 * 256 + bytes[i + 1] as u16;
-                ret.push(*babel.get(&x).unwrap());
+                temp.push(*babel.get(&x).unwrap());
                 i += 2;
                 if i >= bytes.len() {
+                    ret.push(temp);
                     break
                 }
             }
@@ -61,7 +67,7 @@ pub fn collect(state: State, babel: &HashMap<u16, char>) -> Vec<String> {
     let mut ret = Vec::new();
     for s in segments {
         let text = parse_slice(s.into_iter(), babel);
-        ret.push(text);
+        ret.extend(text);
     }
     ret
 }

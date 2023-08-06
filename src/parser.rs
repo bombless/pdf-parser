@@ -175,6 +175,37 @@ impl PDF {
 
     }
 
+    pub fn get_pages_grand_kids(&self) -> Option<Vec<&Object>> {
+        let kids = if let Some(x) = self.get_pages_kids() {
+            let mut vec = Vec::new();
+            for item in x {
+                if let Some(Value::List(list)) = item.dict().get("Kids") {
+                    vec.extend(list)
+                } else {
+                    return None;
+                }
+            }
+            vec
+        } else {
+            return None;
+        };
+
+        let mut iter = kids.into_iter();
+
+        let mut ret = Vec::new();
+
+        while let Some(x) = iter.next() {
+            if let &Value::Ref(major, minor) = x {
+                ret.push(self.objects.get(&(major, minor))?);
+            } else {
+                return None;
+            }
+        }
+
+        Some(ret)
+
+    }
+
     pub fn get_contents(&self) -> Vec<&[u8]> {
         let contents = if let Some(x) = self.get_pages_kids() {
             x
