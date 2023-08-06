@@ -12,6 +12,15 @@ pub enum Value {
     Dict(HashMap<String, Value>)
 }
 
+impl PartialEq<str> for Value {
+    fn eq(&self, other: &str) -> bool {
+        match self {
+            Value::Key(s) | Value::String(s) if s == other => true,
+            _ => false
+        }
+    }
+}
+
 pub struct Object {
     id: (usize, usize),
     dict: HashMap<String, Value>,
@@ -60,6 +69,7 @@ impl PDF {
     }
     pub fn get_references(&self) -> Vec<((usize, usize), String, &Object)> {
         let mut ret = Vec::new();
+        self.get_references_from_dict(&self.meta, (0, 0), &mut ret);
         for (&id, o) in &self.objects {
             for (k, v) in &o.dict {
                 match v {
@@ -223,6 +233,16 @@ impl PDF {
             return ret;
         }
         HashMap::new()
+    }
+
+    pub fn get_cmaps(&self) -> Vec<&[u8]> {
+        let mut ret = Vec::new();
+        for (_, obj) in &self.objects {
+            if obj.dict.get("Type").map_or(false, |x| x == "CMap") {
+                ret.push(&obj.stream[..]);
+            }
+        }
+        ret
     }
 
     pub fn get_descendant_fonts(&self) -> Vec<&Object> {

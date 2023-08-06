@@ -16,10 +16,14 @@ fn print(s: &[u8]) {
 }
 
 fn main() {
+    use std::io::{Write, stdout};
     use pdf_parser::parser::{parse, Object, Value};
     use std::collections::HashMap;
 
     let pdf = parse(include_bytes!("../test.pdf")).unwrap();
+
+    println!("meta {:?}", pdf.get_meta());
+
     println!("pages {:?}", pdf.get_pages().map(Object::dict));
     let kids = pdf.get_pages_kids().into_iter().flatten();
     
@@ -32,7 +36,6 @@ fn main() {
 
     println!("contents id {:?}", pdf.get_contents_id());
     for c in pdf.get_contents() {
-        use std::io::{Write, stdout};
         println!("content {:?}", c);
         stdout().write(c).unwrap();
         println!();
@@ -89,5 +92,9 @@ fn main() {
         println!("{:?}", v.dict());
         let mut f = File::create(&format!("{k:?}.bin")).unwrap();
         f.write_all(v.stream()).unwrap();
+    }
+
+    for v in pdf.get_cmaps() {
+        stdout().write(v).unwrap();
     }
 }
