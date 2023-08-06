@@ -9,7 +9,10 @@ pub enum Value {
     Key(String),
     List(Vec<Value>),
     Ref(usize, usize),
-    Dict(HashMap<String, Value>)
+    Dict(HashMap<String, Value>),
+    Id(u128),
+    Null,
+    Bool(bool),
 }
 
 impl PartialEq<str> for Value {
@@ -23,13 +26,21 @@ impl PartialEq<str> for Value {
 
 pub struct Object {
     id: (usize, usize),
-    dict: HashMap<String, Value>,
+    value: Value,
     stream: Vec<u8>,
+}
+
+lazy_static! {
+    static ref DUMMY: HashMap<String, Value> = HashMap::new();
 }
 
 impl Object {
     pub fn dict(&self) -> &HashMap<String, Value> {
-        &self.dict
+        if let &Value::Dict(ref dict) = &self.value {
+            dict
+        } else {
+            &DUMMY
+        }
     }
 
     pub fn id(&self) -> (usize, usize) {
@@ -42,12 +53,12 @@ impl Object {
 
 impl fmt::Debug for Object {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let name = if let Some(Value::Key(s)) = self.dict.get("Type") {
+        let name = if let Some(Value::Key(s)) = self.dict().get("Type") {
             s.to_owned()
         } else {
             "".into()
         };
-        write!(f, "Object({:?}, {name:?}, {} keys, stream length {})", self.id, self.dict.len(), self.stream.len())
+        write!(f, "Object({:?}, {name:?}, {} keys, stream length {})", self.id, self.dict().len(), self.stream.len())
     }
 }
 
@@ -71,7 +82,7 @@ impl PDF {
         let mut ret = Vec::new();
         self.get_references_from_dict(&self.meta, (0, 0), &mut ret);
         for (&id, o) in &self.objects {
-            for (k, v) in &o.dict {
+            for (k, v) in o.dict() {
                 match v {
                     &Value::Ref(m, n) => {
                         ret.push((id, k.to_string(), self.objects.get(&(m, n)).unwrap()));
@@ -129,7 +140,7 @@ impl PDF {
             return None;
         };
         let root = self.objects.get(&root).unwrap();
-        let pages = if let Some(&Value::Ref(major, minor)) = root.dict.get("Pages") {
+        let pages = if let Some(&Value::Ref(major, minor)) = root.dict().get("Pages") {
             (major, minor)
         } else {
             return None;
@@ -139,7 +150,7 @@ impl PDF {
 
     pub fn get_pages_kids(&self) -> Option<Vec<&Object>> {
         let kids = if let Some(x) = self.get_pages() {
-            if let Some(Value::List(list)) = x.dict.get("Kids") {
+            if let Some(Value::List(list)) = x.dict().get("Kids") {
                 list
             } else {
                 return None;
@@ -172,7 +183,7 @@ impl PDF {
         };
         let mut ret = Vec::new();
         for x in contents {
-            let c = if let Some(&Value::Ref(m, n)) = x.dict.get("Contents") {
+            let c = if let Some(&Value::Ref(m, n)) = x.dict().get("Contents") {
                 if let Some(x) = self.objects.get(&(m, n)) {
                     &x.stream[..]
                 } else {
@@ -194,7 +205,7 @@ impl PDF {
         };
         let mut ret = Vec::new();
         for x in contents {
-            let id = if let Some(&Value::Ref(m, n)) = x.dict.get("Contents") {
+            let id = if let Some(&Value::Ref(m, n)) = x.dict().get("Contents") {
                 (m, n)
             } else {
                 continue;
@@ -206,7 +217,7 @@ impl PDF {
 
     pub fn get_fonts(&self) -> HashMap<&str, &Object> {
         let pages = if let Some(x) = self.get_pages() {
-            &x.dict
+            x.dict()
         } else {
             return HashMap::new();
         };
@@ -238,7 +249,7 @@ impl PDF {
     pub fn get_cmaps(&self) -> Vec<&[u8]> {
         let mut ret = Vec::new();
         for (_, obj) in &self.objects {
-            if obj.dict.get("Type").map_or(false, |x| x == "CMap") {
+            if obj.dict().get("Type").map_or(false, |x| x == "CMap") {
                 ret.push(&obj.stream[..]);
             }
         }
@@ -248,7 +259,7 @@ impl PDF {
     pub fn get_cmaps_lines(&self) -> Vec<String> {
         let mut ret = Vec::new();
         for (_, obj) in &self.objects {
-            if obj.dict.get("Type").map_or(false, |x| x == "CMap") {
+            if obj.dict().get("Type").map_or(false, |x| x == "CMap") {
                 if obj.stream.is_ascii() {
                     ret.push(String::from_utf8(obj.stream.clone()).unwrap());
                 }
@@ -260,7 +271,7 @@ impl PDF {
     pub fn get_descendant_fonts(&self) -> Vec<&Object> {
         let mut ret = Vec::new();
         for (_, f) in self.get_fonts() {
-            let dict = &f.dict;
+            let dict = f.dict();
             if let Some(Value::List(f)) = dict.get("DescendantFonts") {
                 for x in f {
                     if let &Value::Ref(m, n) = x {
@@ -277,7 +288,7 @@ impl PDF {
     pub fn get_font_describtors(&self) -> Vec<&Object> {
         let mut ret = Vec::new();
         for o in self.get_descendant_fonts() {
-            let dict = &o.dict;
+            let dict = o.dict();
             if let Some(&Value::Ref(m, n)) = dict.get("FontDescriptor") {
                 if let Some(x) = self.objects.get(&(m, n)) {
                     ret.push(x);
@@ -320,7 +331,12 @@ pub fn parse(source: &[u8]) -> Result<PDF, String> {
         }
 
         let id = state.expect_obj_start()?;
-        let dict = state.parse_dict()?;
+        let value = state.parse_value()?;
+        let dict = if let &Value::Dict(ref dict) = &value {
+            dict
+        } else {
+            &DUMMY
+        };
         let mut stream = Vec::new();
         let next = state.next_token();
         if next == Some(Token::StreamStart) {
@@ -349,7 +365,7 @@ pub fn parse(source: &[u8]) -> Result<PDF, String> {
 
         objects.insert(id, Object {
             id,
-            dict,
+            value,
             stream,
         });
 
@@ -423,6 +439,10 @@ impl State {
             return Err("expected token".into());
         };
         match token {
+            Bool(b) => return Ok(Value::Bool(b)),
+            Null => return Ok(Value::Null),
+            Eof => return Err("unexpected EOF".into()),
+            Id(x) => return Ok(Value::Id(x)),
             StringLiteral(s) => return Ok(Value::String(s)),
             Key(s) => return Ok(Value::Key(s)),
             Ref((major, version)) => return Ok(Value::Ref(major, version)),
@@ -439,7 +459,7 @@ impl State {
                     let token = if let Some(x) = self.next_token() {
                         x
                     } else {
-                        return Err("unexpected EOF".into());
+                        return Err("unexpected lexing error".into());
                     };
                     if token == ListEnd {
                         return Ok(Value::List(ret));
@@ -458,6 +478,12 @@ impl State {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test() {
+        parse(include_bytes!("../dict.dump")).unwrap();
+    }
+
     #[test]
     fn parse_list() {
         let mut state = State {

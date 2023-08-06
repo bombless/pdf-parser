@@ -6,7 +6,7 @@ fn main() {
     use std::io::{Write, stdout};
     use pdf_parser::parser::{parse, Object, Value};
 
-    let pdf = parse(include_bytes!("../test.pdf")).unwrap();
+    let pdf = parse(include_bytes!("../attention.pdf")).unwrap();
 
     println!("meta {:?}", pdf.get_meta());
 

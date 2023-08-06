@@ -17,12 +17,18 @@ pub enum Token {
     Ref((usize, usize)),
     Number(f64),
     XRef,
+    Eof,
+    Id(u128),
+    Null,
+    Bool(bool),
 }
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Token::*;
         match self {
+            Bool(b) => write!(f, "{b}"),
+            Null => write!(f, "null"),
             StringLiteral(s) => write!(f, "{s:?}"),
             Key(s) => write!(f, "/{s}"),
             DictStart => write!(f, "DictStart"),
@@ -36,6 +42,8 @@ impl fmt::Display for Token {
             Ref(id) => write!(f, "Ref{id:?}"),
             Number(n) => write!(f, "Number({n})"),
             XRef => write!(f, "xref"),
+            Eof => write!(f, "EOF"),
+            Id(x) => write!(f, "<{x}>")
         }
     }
 }
@@ -342,6 +350,27 @@ impl State {
             
             if c.is_whitespace() {
                 return 1;
+            }
+
+            if byte == b'<' {
+                let id = String::from_utf8(curr[1..33].into()).unwrap();
+                token.replace(Token::Id(u128::from_str_radix(&id, 16).unwrap()));
+                return 34;
+            }
+
+            if curr.starts_with(b"null") && !curr[4].is_ascii_alphanumeric() {
+                token.replace(Token::Null);
+                return 4;
+            }
+
+            if curr.starts_with(b"true") && !curr[4].is_ascii_alphanumeric() {
+                token.replace(Token::Bool(true));
+                return 4;
+            }
+
+            if curr.starts_with(b"false") && !curr[5].is_ascii_alphanumeric() {
+                token.replace(Token::Bool(false));
+                return 5;
             }
 
             return 0;
