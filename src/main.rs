@@ -98,6 +98,9 @@ fn main() {
     let mut line_iter = lines.iter().map(|x| x.split("\n")).flatten();
 
     while let Some(v) = line_iter.next() {
+        use encoding::{Encoding, EncoderTrap};
+        use encoding::all::GBK;
+    
         if v.ends_with(" beginbfchar") {
             let n: usize = v.split(" ").next().unwrap().parse().unwrap();
             for _ in 0 .. n {
@@ -114,6 +117,10 @@ fn main() {
                 let target = char::from_u32(u32::from_str_radix(right, 16).unwrap()).unwrap();
 
                 println!("{proxy_char} -> {target}");
+                for x in GBK.encode(&target.to_string(), EncoderTrap::Strict).unwrap() {
+                    print!("{x:02X}");
+                }
+                println!();
             }
             break;
         }
