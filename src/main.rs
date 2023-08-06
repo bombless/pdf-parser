@@ -1,38 +1,16 @@
-fn print(s: &[u8]) {
-    let mut first = true;
-    for &x in s {
-        if first {
-            first = false;
-        } else {
-            print!(", ");
-        }
-        if x.is_ascii() {
-            print!("{}", x as char);
-        } else {
-            print!(" ");
-        }
-        print!("({:02x})", x);
-    }
-}
+use postscript::lexer::{Token::*, State};
+use postscript::parser::collect;
+use std::collections::HashMap;
 
 fn main() {
     use std::io::{Write, stdout};
     use pdf_parser::parser::{parse, Object, Value};
-    use std::collections::HashMap;
 
     let pdf = parse(include_bytes!("../test.pdf")).unwrap();
 
     println!("meta {:?}", pdf.get_meta());
 
     println!("pages {:?}", pdf.get_pages().map(Object::dict));
-    let kids = pdf.get_pages_kids().into_iter().flatten();
-    
-    for k in kids {
-        println!("kid {:?}", k.dict());
-        if let Some(&Value::Ref(m, n)) = k.dict().get("Contents") {
-            println!("{:?}", pdf.get_objects().get(&(m, n)).unwrap().dict());
-        }
-    }
 
     println!("contents id {:?}", pdf.get_contents_id());
     for c in pdf.get_contents() {
@@ -97,6 +75,8 @@ fn main() {
 
     let mut line_iter = lines.iter().map(|x| x.split("\n")).flatten();
 
+    let mut babel = HashMap::new();
+
     while let Some(v) = line_iter.next() {
         if v.ends_with(" beginbfchar") {
             let n: usize = v.split(" ").next().unwrap().parse().unwrap();
@@ -113,9 +93,31 @@ fn main() {
                 let proxy_char = u16::from_str_radix(left, 16).unwrap();
                 let target = char::from_u32(u32::from_str_radix(right, 16).unwrap()).unwrap();
 
+                babel.insert(proxy_char, target);
                 println!("{proxy_char} -> {target}");
             }
             break;
         }
+    }
+
+
+    for c in pdf.get_contents() {
+        let mut lexer = postscript::lexer::parse(c);
+        while let Some(x) = lexer.next() {
+            match x {
+                Operator(op) if op == "BT" => {
+                    parse_bt(lexer, &babel);
+                    break;
+                }
+                _ => {}
+            }
+        }
+    }
+
+}
+
+fn parse_bt(state: State, babel: &HashMap<u16, char>) {
+    for line in collect(state, babel) {
+        println!("{line}");
     }
 }

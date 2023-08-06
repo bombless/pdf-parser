@@ -47,4 +47,9 @@ name = "pdf-parser"
 version = "0.1.0"
 dependencies = [
  "flate2",
+ "postscript",
 ]
+
+[[package]]
+name = "postscript"
+version = "0.1.0"
