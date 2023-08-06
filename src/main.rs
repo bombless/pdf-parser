@@ -32,16 +32,19 @@ fn main() {
 
     println!("contents id {:?}", pdf.get_contents_id());
     for c in pdf.get_contents() {
+        use std::io::{Write, stdout};
         println!("content {:?}", c);
-        if c.iter().all(u8::is_ascii) {
-            for &c in c {
-                print!("{}", c as char);
-            }
-            println!();
-        } else {
-            print(c);
-            println!();
-        }
+        stdout().write(c).unwrap();
+        println!();
+        // if c.iter().all(u8::is_ascii) {
+        //     for &c in c {
+        //         print!("{}", c as char);
+        //     }
+        //     println!();
+        // } else {
+        //     print(c);
+        //     println!();
+        // }
     }
 
     for (name, obj) in pdf.get_fonts() {

@@ -384,9 +384,10 @@ impl State {
         self.index += size;
         size
     }
-    pub fn get_flate_stream(&mut self, buf: &mut Vec<u8>) -> usize {
-        const END: &'static [u8] = b"\nendstream\n;";
-        const LEN: usize = END.len();
+    pub fn get_flate_stream(&mut self, size: usize, buf: &mut Vec<u8>) -> usize {
+        if self.store.len() < size + self.index {
+            return 0;
+        }
 
         fn decode(data: &[u8], buf: &mut Vec<u8>) -> usize {
             use std::io::Read;
@@ -397,11 +398,11 @@ impl State {
             decoder.read_to_end(buf).unwrap()
         }
 
-        if let Some(pos) = self.store[..][self.index..].windows(LEN).position(|x| x.starts_with(END)) {
-            decode(&self.store[..pos], buf) 
-        } else {
-            0
-        }
+        decode(&self.store[..][self.index .. self.index + size], buf);
+
+        self.index += size;
+
+        size        
     }
     pub fn get_ascii_line(&mut self) -> Option<String> {
         let mut i = 0;

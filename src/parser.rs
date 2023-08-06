@@ -261,6 +261,7 @@ impl PDF {
 }
 
 pub fn parse(source: &[u8]) -> Result<PDF, String> {
+
     let mut state = State {
         lexer: lexer::parse(source),        
     };
@@ -293,17 +294,17 @@ pub fn parse(source: &[u8]) -> Result<PDF, String> {
         if next == Some(Token::StreamStart) {
             let kind = dict.get("Filter");
             let is_encoded = match kind {
-                Some(Value::String(x)) if x == "FlateDecode" => true,
+                Some(Value::Key(x)) if x == "FlateDecode" => true,
                 _ => false,
             };
-            if is_encoded {
-                state.lexer.get_flate_stream(&mut stream);
+            let len = if let Some(Value::Number(n)) = dict.get("Length") {
+                *n as _
             } else {
-                let len = if let Some(Value::Number(n)) = dict.get("Length") {
-                    *n as _
-                } else {
-                    return Err("where's .. length?".into());
-                };
+                return Err("where's .. length?".into());
+            };
+            if is_encoded {
+                state.lexer.get_flate_stream(len, &mut stream);
+            } else {                
                 state.lexer.get_fixed_length_stream(len, &mut stream);
             }
             state.expect_stream_end()?;
@@ -313,7 +314,6 @@ pub fn parse(source: &[u8]) -> Result<PDF, String> {
             return Err(format!("unexpected {next:?}"));
         }
 
-        // println!("object {:?} parsed {:?}", id, dict);
 
         objects.insert(id, Object {
             id,
