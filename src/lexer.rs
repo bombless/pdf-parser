@@ -147,6 +147,13 @@ impl State {
                 }
                 ctx @ &mut Ctx::Comment(..) => prev_ctx = take(ctx),
                 &mut Ctx::String(_, ref mut string_content) if byte != b')' => {
+                    if byte == b'\\' {
+                        if curr.len() > 1 && (curr[1] == b'(' || curr[1] == b')') {
+                            string_content.push(curr[1] as char);
+                            return 2;
+                        }
+                        return 0;
+                    }
                     string_content.push(byte as char);
                     return 1;
                 }
