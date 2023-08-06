@@ -245,6 +245,18 @@ impl PDF {
         ret
     }
 
+    pub fn get_cmaps_lines(&self) -> Vec<String> {
+        let mut ret = Vec::new();
+        for (_, obj) in &self.objects {
+            if obj.dict.get("Type").map_or(false, |x| x == "CMap") {
+                if obj.stream.is_ascii() {
+                    ret.push(String::from_utf8(obj.stream.clone()).unwrap());
+                }
+            }
+        }
+        ret
+    }
+
     pub fn get_descendant_fonts(&self) -> Vec<&Object> {
         let mut ret = Vec::new();
         for (_, f) in self.get_fonts() {

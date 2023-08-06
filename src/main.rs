@@ -82,7 +82,6 @@ fn main() {
     }
 
     for (k, v) in pdf.get_objects() {
-        use std::io::Write;
         use std::fs::File;
         // print(v.stream());
         if v.stream().is_empty() {
@@ -94,7 +93,29 @@ fn main() {
         f.write_all(v.stream()).unwrap();
     }
 
-    for v in pdf.get_cmaps() {
-        stdout().write(v).unwrap();
+    let lines = pdf.get_cmaps_lines();
+
+    let mut line_iter = lines.iter().map(|x| x.split("\n")).flatten();
+
+    while let Some(v) = line_iter.next() {
+        if v.ends_with(" beginbfchar") {
+            let n: usize = v.split(" ").next().unwrap().parse().unwrap();
+            for _ in 0 .. n {
+                let line = line_iter.next().unwrap();
+                println!("{line}");
+                let mut components = line.split("> <");
+                let left = &components.next().unwrap()[1..];
+                let right_half_bake = &components.next().unwrap();
+                let right = &right_half_bake[..right_half_bake.len() - 1];
+
+                println!("{left} -> {right}");
+
+                let proxy_char = u16::from_str_radix(left, 16).unwrap();
+                let target = char::from_u32(u32::from_str_radix(right, 16).unwrap()).unwrap();
+
+                println!("{proxy_char} -> {target}");
+            }
+            break;
+        }
     }
 }
