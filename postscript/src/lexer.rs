@@ -4,7 +4,7 @@ use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
-    StringLiteral(String),
+    StringLiteral(Vec<u8>),
     Key(String),
     Operator(String),
     DictStart,
@@ -44,10 +44,10 @@ impl fmt::Display for Token {
 
 impl PartialEq<str> for Token {
     fn eq(&self, other: &str) -> bool {
-        if let Token::Key(s) | Token::StringLiteral(s) = self {
-            s == other
-        } else {
-            false
+        match self {
+            Token::Key(s) if s == other => true,
+            Token::StringLiteral(s) if s == other.as_bytes() => true,
+            _ => false
         }
     }
 }
@@ -108,7 +108,7 @@ impl State {
         enum Ctx {
             Comment(usize, Vec<u8>),
             Key(usize, String),
-            String(usize, String),
+            String(usize, Vec<u8>),
             None,
         }
 
@@ -149,7 +149,7 @@ impl State {
                 }
                 ctx @ &mut Ctx::Comment(..) => prev_ctx = take(ctx),
                 &mut Ctx::String(_, ref mut string_content) if byte != b')' => {
-                    string_content.push(byte as char);
+                    string_content.push(byte);
                     return 1;
                 }
                 ctx @ &mut Ctx::String(..) => prev_ctx = take(ctx),
@@ -191,7 +191,7 @@ impl State {
             }
 
             if c == '(' {
-                curr_ctx = Ctx::String(index, String::new());
+                curr_ctx = Ctx::String(index, Vec::new());
                 return 1;
             }
 
