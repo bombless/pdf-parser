@@ -28,6 +28,11 @@ pub fn parse_options() -> ArgMatches {
             .required(false)
             .action(ArgAction::SetTrue)
         )
+        .arg(
+            arg!(-p --pages ... "Print pages")
+            .required(false)
+            .action(ArgAction::SetTrue)
+        )
         .get_matches();
     matches
 }

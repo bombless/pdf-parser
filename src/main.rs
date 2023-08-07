@@ -5,7 +5,7 @@ use std::collections::HashMap;
 mod cli;
 
 fn main() {
-    use pdf_parser::parser::{parse, Value};
+    use pdf_parser::parser::parse;
 
     let options = cli::parse_options();
 
@@ -16,37 +16,17 @@ fn main() {
         println!("meta {:?}", pdf.get_meta());
     }
 
+    if options.get_flag("pages") {
+        if let Some(x) = pdf.get_pages() {
+            println!("{x:?}");
+            println!("{:?}", x.dict());
+        }
+    }
+
     if options.get_flag("grand_kids") {
         for x in pdf.get_pages_grand_kids().unwrap() {
             println!("grand kid {x:?} {:?}", x.dict());
         }
-    }
-
-    for (name, obj) in pdf.get_fonts() {
-        println!("font {name} {:?} {:?}", obj.id(), obj.dict());
-    }
-
-    for entry in pdf.get_descendant_fonts() {
-        println!("{entry:?}");
-        println!("DescendantFonts {:?}", entry.dict());
-    }
-
-    let mut references = HashMap::new();
-
-    for entry in pdf.get_font_describtors() {
-        println!("{entry:?}");
-        println!("FontDescriptor {:?}", entry.dict());
-        for (k, v) in entry.dict() {
-            if let Value::Ref(m, n) = v {
-                if let Some(x) = pdf.get(&(*m, *n)) {
-                    references.insert(k, x);
-                }
-            }
-        }
-    }
-
-    for (name, v) in references {
-        println!("{name} {v:?}\n{:?}", v.dict())
     }
 
     let lines = pdf.get_cmaps_lines();
