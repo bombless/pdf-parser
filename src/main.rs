@@ -73,6 +73,7 @@ fn main() {
     if options.get_flag("first_page") {
         let first_page = pdf.get_first_page().unwrap();
         for obj in first_page {
+            println!("{obj:?}");
             println!("{:?}", obj.dict());
             let state = lexer(obj.stream());
             for line in collect_texts(state, &babel) {

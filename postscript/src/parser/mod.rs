@@ -27,15 +27,11 @@ pub fn parse(mut state: State) -> Vec<Operation> {
 
 pub fn get_texts(state: State) -> Vec<Vec<Token>> {
     let operations = parse(state);
-    operations.into_iter().filter(|x| x.op == "TJ").map(|x| x.tokens).collect()
+    operations.into_iter().filter(|x| x.op == "TJ" || x.op == "Tj").map(|x| x.tokens).collect()
 }
 
 
 pub fn parse_slice(mut slice: impl Iterator<Item=Token>, babel: &HashMap<u16, char>) -> Vec<String> {
-    let c = slice.next().unwrap();
-    if c != ListStart {
-        panic!()
-    }
 
     let mut ret = Vec::new();
 
