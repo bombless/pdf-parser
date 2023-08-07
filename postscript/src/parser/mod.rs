@@ -62,7 +62,7 @@ pub fn parse_slice(mut slice: impl Iterator<Item=Token>, babel: &HashMap<u16, ch
     ret
 }
 
-pub fn collect(state: State, babel: &HashMap<u16, char>) -> Vec<String> {
+pub fn collect_texts(state: State, babel: &HashMap<u16, char>) -> Vec<String> {
     let segments = get_texts(state);
     let mut ret = Vec::new();
     for s in segments {
@@ -70,4 +70,9 @@ pub fn collect(state: State, babel: &HashMap<u16, char>) -> Vec<String> {
         ret.extend(text);
     }
     ret
+}
+
+pub fn collect_operations(state: State) -> Vec<String> {
+    let operations = parse(state);
+    operations.into_iter().map(|x| x.op).collect()
 }

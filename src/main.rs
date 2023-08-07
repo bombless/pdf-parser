@@ -1,20 +1,25 @@
 use postscript::lexer::{Token::*, State};
-use postscript::parser::collect;
+use postscript::parser::*;
 use std::collections::HashMap;
 
+mod cli;
+
 fn main() {
-    use pdf_parser::parser::{parse, Object, Value};
+    use pdf_parser::parser::{parse, Value};
+
+    let options = cli::parse_options();
+
 
     let pdf = parse(include_bytes!("../attention.pdf")).unwrap();
 
-    println!("meta {:?}", pdf.get_meta());
+    if options.get_flag("meta") {
+        println!("meta {:?}", pdf.get_meta());
+    }
 
-    println!("pages {:?}", pdf.get_pages().map(Object::dict));
-
-    println!("pages kids {:?}", pdf.get_pages_kids());
-
-    for x in pdf.get_pages_grand_kids().unwrap() {
-        println!("grand kid {x:?} {:?}", x.dict());
+    if options.get_flag("grand_kids") {
+        for x in pdf.get_pages_grand_kids().unwrap() {
+            println!("grand kid {x:?} {:?}", x.dict());
+        }
     }
 
     for (name, obj) in pdf.get_fonts() {
@@ -55,22 +60,48 @@ fn main() {
             let n: usize = v.split(" ").next().unwrap().parse().unwrap();
             for _ in 0 .. n {
                 let line = line_iter.next().unwrap();
-                println!("{line}");
+                if options.get_flag("cmap") {
+                    println!("{line}");
+                }
                 let mut components = line.split("> <");
                 let left = &components.next().unwrap()[1..];
                 let right_half_bake = &components.next().unwrap();
                 let right = &right_half_bake[..right_half_bake.len() - 1];
 
-                println!("{left} -> {right}");
+                if options.get_flag("cmap") {
+                    println!("{left} -> {right}");
+                }
 
                 let proxy_char = u16::from_str_radix(left, 16).unwrap();
                 let target = char::from_u32(u32::from_str_radix(right, 16).unwrap()).unwrap();
 
                 babel.insert(proxy_char, target);
-                println!("{proxy_char} -> {target}");
+
+                if options.get_flag("cmap") {
+                    println!("{proxy_char} -> {target}");
+                }
             }
             break;
         }
+    }
+
+
+    if options.get_flag("operations") {
+
+        for (_, name, obj) in pdf.get_references() {
+            if name != "Contents" {
+                continue;
+            }
+            let lexer = postscript::lexer::parse(obj.stream());
+            for x in collect_operations(lexer) {
+                println!("{x}");
+            }
+        }
+        return;
+    }
+
+    if !options.get_flag("texts") {
+        return;
     }
 
 
@@ -106,7 +137,7 @@ fn main() {
 }
 
 fn parse_bt(state: State, babel: &HashMap<u16, char>) {
-    for line in collect(state, babel) {
+    for line in collect_texts(state, babel) {
         println!("{line}");
     }
 }

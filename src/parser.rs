@@ -347,7 +347,6 @@ pub fn parse(source: &[u8]) -> Result<PDF, String> {
         if state.lexer.is(Token::XRef) {
             state.lexer.next();
             while let Some(line) = state.lexer.get_ascii_line() {
-                println!("{line}");
                 if line == "trailer" {
                     let meta = state.parse_dict()?;
                     let pdf = PDF {
