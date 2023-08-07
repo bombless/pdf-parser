@@ -21,6 +21,11 @@ fn main() {
             println!("{x:?}");
             println!("{:?}", x.dict());
         }
+
+        for obj in pdf.get_pages_kids().unwrap() {
+            println!("{obj:?}");
+            println!("{:?}", obj.dict());
+        }
     }
 
     if options.get_flag("grand_kids") {
@@ -77,7 +82,6 @@ fn main() {
                 println!("{x}");
             }
         }
-        return;
     }
 
     if !options.get_flag("texts") {
