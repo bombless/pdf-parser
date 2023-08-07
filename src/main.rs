@@ -1,4 +1,4 @@
-use postscript::lexer::{Token::*, State};
+use postscript::lexer::{parse as lexer, Token::*, State};
 use postscript::parser::*;
 use std::collections::HashMap;
 
@@ -70,6 +70,17 @@ fn main() {
         }
     }
 
+    if options.get_flag("first_page") {
+        let first_page = pdf.get_first_page().unwrap();
+        for obj in first_page {
+            println!("{:?}", obj.dict());
+            let state = lexer(obj.stream());
+            for line in collect_texts(state, &babel) {
+                println!("{line}");
+            }
+        }
+    }
+
 
     if options.get_flag("operations") {
 
@@ -77,7 +88,7 @@ fn main() {
             if name != "Contents" {
                 continue;
             }
-            let lexer = postscript::lexer::parse(obj.stream());
+            let lexer = lexer(obj.stream());
             for x in collect_operations(lexer) {
                 println!("{x}");
             }
@@ -90,7 +101,7 @@ fn main() {
 
 
     for c in pdf.get_contents() {
-        let mut lexer = postscript::lexer::parse(c);
+        let mut lexer = lexer(c);
         while let Some(x) = lexer.next() {
             match x {
                 Operator(op) if op == "BT" => {
@@ -106,7 +117,7 @@ fn main() {
         if name != "Contents" {
             continue;
         }
-        let mut lexer = postscript::lexer::parse(obj.stream());
+        let mut lexer = lexer(obj.stream());
         while let Some(x) = lexer.next() {
             match x {
                 Operator(op) if op == "BT" => {

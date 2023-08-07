@@ -148,6 +148,41 @@ impl PDF {
         self.objects.get(&pages)
     }
 
+    pub fn get_first_page(&self) -> Option<Vec<&Object>> {
+        let mut ptr = if let Some(x) = self.get_pages() {
+            x
+        } else {
+            return None;
+        };
+        while let Some(Value::List(list)) = ptr.dict().get("Kids") {
+            ptr = if let Some(&Value::Ref(m, n)) = list.get(0) {
+                if let Some(x) = self.get(&(m, n)) {
+                    x
+                } else {
+                    return None;
+                }
+            } else {
+                return None;
+            }
+        }
+        
+        let mut contents = if let Some(Value::List(list)) = ptr.dict().get("Contents") {
+            list.iter()
+        } else {
+            return None;
+        };
+        let mut ret = Vec::new();
+        while let Some(&Value::Ref(m, n)) = contents.next() {
+            ret.push(if let Some(x) = self.get(&(m, n)) {
+                x
+            } else {
+                return None;
+            });
+        }
+        Some(ret)
+
+    }
+
     pub fn get_pages_kids(&self) -> Option<Vec<&Object>> {
         let kids = if let Some(x) = self.get_pages() {
             if let Some(Value::List(list)) = x.dict().get("Kids") {
