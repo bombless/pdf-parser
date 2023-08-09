@@ -101,16 +101,23 @@ fn main() {
     }
 
 
+
+    for (.., obj) in pdf.get_references() {
+        if !obj.dict().get("Type").map_or(false, |x| x == "Text") {
+            continue;
+        }
+        let lexer = lexer(obj.stream());
+        println!("Text {obj:?}");
+        for line in collect_texts(lexer, &babel) {
+            println!("{line}");
+        }
+    }
+
+
     for c in pdf.get_contents() {
-        let mut lexer = lexer(c);
-        while let Some(x) = lexer.next() {
-            match x {
-                Operator(op) if op == "BT" => {
-                    parse_bt(lexer, &babel);
-                    break;
-                }
-                _ => {}
-            }
+        let lexer = lexer(c);
+        for line in collect_texts(lexer, &babel) {
+            println!("{line}");
         }
     }
 
@@ -118,22 +125,11 @@ fn main() {
         if name != "Contents" {
             continue;
         }
-        let mut lexer = lexer(obj.stream());
-        while let Some(x) = lexer.next() {
-            match x {
-                Operator(op) if op == "BT" => {
-                    parse_bt(lexer, &babel);
-                    break;
-                }
-                _ => {}
-            }
+        let lexer = lexer(obj.stream());
+        println!("{obj:?}");
+        for line in collect_texts(lexer, &babel) {
+            println!("{line}");
         }
     }
 
-}
-
-fn parse_bt(state: State, babel: &HashMap<u16, char>) {
-    for line in collect_texts(state, babel) {
-        println!("{line}");
-    }
 }
