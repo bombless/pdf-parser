@@ -5,12 +5,18 @@ use std::collections::HashMap;
 mod cli;
 
 fn main() {
+    use std::fs::File;
+    use std::io::Read;
     use pdf_parser::parser::parse;
 
     let options = cli::parse_options();
 
+    let file_path = options.get_one::<String>("FILE").expect("Require file name");
+    let mut file = File::open(file_path).unwrap();
+    let mut content = Vec::new();
+    file.read_to_end(&mut content).unwrap();
 
-    let pdf = parse(include_bytes!("../attention.pdf")).unwrap();
+    let pdf = parse(&content).unwrap();
 
     if options.get_flag("meta") {
         println!("meta {:?}", pdf.get_meta());

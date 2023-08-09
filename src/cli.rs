@@ -2,7 +2,7 @@ use clap::{arg, command, ArgAction, ArgMatches};
 
 pub fn parse_options() -> ArgMatches {
     let matches = command!() // requires `cargo` feature
-        .arg(arg!([name] "Optional name to operate on"))
+        .arg(arg!(FILE: "File to parse"))
         .arg(
             arg!(-t --texts "Print texts")
             .required(false)
