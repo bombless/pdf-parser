@@ -166,21 +166,28 @@ impl PDF {
             }
         }
         
-        let mut contents = if let Some(Value::List(list)) = ptr.dict().get("Contents") {
-            list.iter()
-        } else {
-            return None;
-        };
-        let mut ret = Vec::new();
-        while let Some(&Value::Ref(m, n)) = contents.next() {
-            ret.push(if let Some(x) = self.get(&(m, n)) {
-                x
-            } else {
-                return None;
-            });
+        return match ptr.dict().get("Contents") {
+            Some(Value::List(list)) => {
+                let mut iter = list.iter();
+                let mut ret = Vec::new();
+                while let Some(&Value::Ref(m, n)) = iter.next() {
+                    ret.push(if let Some(x) = self.get(&(m, n)) {
+                        x
+                    } else {
+                        return None;
+                    });
+                }
+                Some(ret)
+            }
+            Some(&Value::Ref(m, n)) => {
+                if let Some(x) = self.get(&(m, n)) {
+                    Some(vec![x])
+                } else {
+                    None
+                }
+            }
+            _ => None
         }
-        Some(ret)
-
     }
 
     pub fn get_pages_kids(&self) -> Option<Vec<&Object>> {

@@ -11,11 +11,11 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--feature",
+                    "--features",
                     "slint"
                 ],
             },
-            "args": [],
+            "args": ["test.pdf"],
             "cwd": "${workspaceFolder}"
         }
     ]
