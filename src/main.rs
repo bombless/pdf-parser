@@ -1,4 +1,4 @@
-use postscript::lexer::{parse as lexer, Token::*, State};
+use postscript::lexer::parse as lexer;
 use postscript::parser::*;
 use std::collections::HashMap;
 
@@ -74,6 +74,46 @@ fn main() {
             }
             break;
         }
+    }
+
+    #[cfg(feature = "slint")]
+    {
+        use pdf_parser::text::handle_text_operation;
+        use slint_ui::{TextItem, run};
+        use pdf_parser::operation::TextState;
+        use postscript::parser::parse;
+        let first_page = pdf.get_first_page().unwrap();
+        let mut texts = Vec::new();
+        for obj in first_page {
+            let stream = obj.stream();
+            if stream.is_ascii() {
+                println!("{}", String::from_utf8(stream.into()).unwrap());
+            }
+            let state = lexer(stream);
+            let mut parser = parse(state).into_iter();
+            while let Some(x) = parser.next() {
+                if x.op == "BT" {
+                    let mut text_state = TextState::default();
+                    while let Some(x) = parser.next() {
+                        if x.op == "ET" {
+                            break;
+                        }
+                        handle_text_operation(x, &mut text_state, &babel);
+                    }
+                    for op in text_state.drain() {
+                        println!("{op:?}");
+                        texts.push(TextItem {
+                            x: op.x as _,
+                            y: op.y as _,
+                            size: op.font_size as _,
+                            text: op.text.into(),
+                        });
+                    }
+                }
+            }
+        }
+
+        run(texts);
     }
 
     if options.get_flag("first_page") {

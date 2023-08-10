@@ -10,7 +10,7 @@ clap = { version = "4.3.19", features = ["cargo"] }
 flate2 = "1.0.26"
 lazy_static = "1.4.0"
 postscript = { path = "postscript" }
-
+slint-ui = { path = "slint-ui", features = ["slint"] }
 
 [lib]
 path = "src/lib.rs"
@@ -19,3 +19,6 @@ path = "src/lib.rs"
 [[bin]]
 name = "main"
 path = "src/main.rs"
+
+[features]
+slint = []

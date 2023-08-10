@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 use super::lexer::{Token::{self, *}, State};
 
+#[derive(Clone)]
 pub struct Operation {
-    op: String,
-    tokens: Vec<Token>,
+    pub op: String,
+    pub tokens: Vec<Token>,
 }
 
 pub fn parse(mut state: State) -> Vec<Operation> {
@@ -30,28 +31,34 @@ pub fn get_texts(state: State) -> Vec<Vec<Token>> {
     operations.into_iter().filter(|x| x.op == "TJ" || x.op == "Tj").map(|x| x.tokens).collect()
 }
 
+pub fn get_one_string(token: Token, babel: &HashMap<u16, char>) -> Option<String> {
+    let bytes = if let StringLiteral(bytes) = token {
+            bytes
+    } else {
+        return None;
+    };
+    if babel.is_empty() {
+        return Some(String::from_utf8(bytes).unwrap());
+    }
+    let mut i = 0;
+    let mut temp = String::new();
+    loop {
+        let x = bytes[i] as u16 * 256 + bytes[i + 1] as u16;
+        temp.push(*babel.get(&x).unwrap());
+        i += 2;
+        if i >= bytes.len() {
+            return Some(temp);
+        }
+    }
+}
 
 pub fn parse_slice(mut slice: impl Iterator<Item=Token>, babel: &HashMap<u16, char>) -> Vec<String> {
 
     let mut ret = Vec::new();
 
     while let Some(x) = slice.next() {
-        if let StringLiteral(bytes) = x {
-            if babel.is_empty() {
-                ret.push(String::from_utf8(bytes).unwrap());
-                continue;
-            }
-            let mut i = 0;
-            let mut temp = String::new();
-            loop {
-                let x = bytes[i] as u16 * 256 + bytes[i + 1] as u16;
-                temp.push(*babel.get(&x).unwrap());
-                i += 2;
-                if i >= bytes.len() {
-                    ret.push(temp);
-                    break
-                }
-            }
+        if let Some(x) = get_one_string(x, babel) {
+            ret.push(x);
         }
     }
 

@@ -5,3 +5,6 @@ pub mod parser;
 pub mod lexer;
 
 pub use parser::{Value, Object, PDF};
+
+pub mod operation;
+pub mod text;
