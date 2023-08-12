@@ -167,7 +167,7 @@ impl State {
                     return 1;
                 }
                 ctx @ &mut Ctx::String(..) => prev_ctx = take(ctx),
-                &mut Ctx::Key(idx, ref mut key_content) if !byte.is_ascii_whitespace() && byte != b'/' && byte != b'(' => {
+                &mut Ctx::Key(idx, ref mut key_content) if (!byte.is_ascii_whitespace() && !b"()/<>[]".contains(&byte)) || byte > 128 => {
                     key_content.push(byte as char);
                     if curr.len() == 1 {
                         prev_ctx = Ctx::Key(idx, take(key_content));
@@ -226,6 +226,11 @@ impl State {
             if curr.starts_with(b"\nstream\n") {
                 token.replace(Token::StreamStart);
                 return "\nstream\n".len();
+            }
+
+            if curr.starts_with(b"\r\nstream\r\n") {
+                token.replace(Token::StreamStart);
+                return "\r\nstream\r\n".len();
             }
 
             if c == '-' {
@@ -330,6 +335,13 @@ impl State {
                 return b"endstream\n".len();
             }
 
+            if curr.starts_with(b"endstream\r\n") {
+                assert_eq!(0, usize_stack.len());
+                assert_eq!(0, tokens_waiting.len());
+                token.replace(Token::StreamEnd);
+                return b"endstream\r\n".len();
+            }
+
             if c == ']' {
                 while !usize_stack.is_empty() {
                     tokens_waiting.push_back(Token::Number(usize_stack.pop_front().unwrap() as _));
@@ -351,9 +363,19 @@ impl State {
                 return "endobj\n".len();
             }
 
+            if curr.starts_with(b"endobj\r\n") {
+                token.replace(Token::ObjectEnd);
+                return "endobj\r\n".len();
+            }
+
             if curr.starts_with(b"xref\n") {
                 token.replace(Token::XRef);
                 return b"xref\n".len();
+            }
+
+            if curr.starts_with(b"xref\r\n") {
+                token.replace(Token::XRef);
+                return b"xref\r\n".len();
             }
             
             if c.is_whitespace() {
@@ -454,6 +476,10 @@ impl State {
         while self.index + i < self.store.len() && self.store[self.index + i].is_ascii() {
             let byte = self.store[self.index + i];
             if byte == b'\n' {
+                break;
+            }
+            if self.store[self.index + i..].starts_with(b"\r\n") {
+                i += 1;
                 break;
             }
             ret.push(byte as _);
