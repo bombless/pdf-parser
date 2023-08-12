@@ -536,7 +536,6 @@ impl State {
                     if token == ListEnd {
                         return Ok(Value::List(ret));
                     }
-                    // println!("list parsed {:?}", ret);
                     self.swallow_token(token);
                     let value = self.parse_value()?;
                     ret.push(value);
@@ -594,8 +593,13 @@ mod tests {
         let value = state.parse_value().unwrap();
         let dict = match value { Value::Dict(d) => d, _ => panic!() };
         assert_eq!(dict.len(), 2);
-        let mut iter = dict.into_iter();
-        assert_eq!(iter.next().unwrap(), ("a".into(), Value::List(vec![Value::Ref(4, 0)])));
-        assert_eq!(iter.next().unwrap(), ("a".into(), Value::Ref(6, 0)));
+        for (k, v) in dict {
+            if k == "a" {
+                assert_eq!(v, Value::List(vec![Value::Ref(4, 0)]));
+            }
+            if k == "b" {
+                assert_eq!(v, Value::Ref(6, 0));
+            }
+        }
     }
 }

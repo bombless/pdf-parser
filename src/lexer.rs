@@ -111,6 +111,7 @@ impl State {
     pub fn get_next_token(&mut self) -> Option<Token> {
         use std::mem::take;
 
+        #[derive(Debug)]
         enum Ctx {
             Comment(usize, Vec<u8>),
             Key(usize, String),
@@ -166,14 +167,13 @@ impl State {
                     return 1;
                 }
                 ctx @ &mut Ctx::String(..) => prev_ctx = take(ctx),
-                &mut Ctx::Key(_, ref mut key_content) if !byte.is_ascii_whitespace() && curr.len() > 1 => {
-                    if curr.len() == 2 {
-                        key_content.push(curr[0] as char);
-                        key_content.push(curr[1] as char);
+                &mut Ctx::Key(idx, ref mut key_content) if !byte.is_ascii_whitespace() && byte != b'/' => {
+                    key_content.push(byte as char);
+                    if curr.len() == 1 {
+                        prev_ctx = Ctx::Key(idx, take(key_content));
+                    } else {
                         return 1;
                     }
-                    key_content.push(byte as char);
-                    return 1;
                 }
                 ctx @ &mut Ctx::Key(..) => prev_ctx = take(ctx),
                 Ctx::None => {}
@@ -190,7 +190,7 @@ impl State {
                 }
                 Ctx::Key(_, key_content) => {
                     token.replace(Token::Key(key_content));
-                    return 1;
+                    return 0;
                 }
                 Ctx::None => {}
             }
@@ -291,14 +291,22 @@ impl State {
                 return curr.len();
             }
 
-            if curr.starts_with(b"obj\n") {
+            let obj_start_length = if curr.starts_with(b"obj\n") {
+                4
+            } else if curr.starts_with(b"obj\r\n") {
+                5
+            } else {
+                0
+            };
+
+            if obj_start_length > 0 {
                 if usize_stack.len() >= 2 {
                     while usize_stack.len() > 2 {
                         tokens_waiting.push_back(Token::Number(usize_stack.pop_front().unwrap() as _));
                     }
                     token.replace(Token::ObjectStart((usize_stack[0], usize_stack[1])));
                     usize_stack.clear();
-                    return "obj\n".len();
+                    return obj_start_length;
                 }
                 return 0;
             }
@@ -534,6 +542,12 @@ mod tests {
     }
     #[test]
     fn test_key_or_string() {
+        let mut state = parse(b"/1 /2");
+        assert_eq!(&state.next().unwrap(), "1");
+        assert_eq!(&state.next().unwrap(), "2");
+        let mut state = parse(b"/a/b");
+        assert_eq!(&state.next().unwrap(), "a");
+        assert_eq!(&state.next().unwrap(), "b");
         assert_eq!(&parse(b"/abc").get_next_token().unwrap(), "abc");
         assert_eq!(&parse(b"(I love you)").get_next_token().unwrap(), "I love you");
     }
