@@ -167,7 +167,7 @@ impl State {
                     return 1;
                 }
                 ctx @ &mut Ctx::String(..) => prev_ctx = take(ctx),
-                &mut Ctx::Key(idx, ref mut key_content) if !byte.is_ascii_whitespace() && byte != b'/' => {
+                &mut Ctx::Key(idx, ref mut key_content) if !byte.is_ascii_whitespace() && byte != b'/' && byte != b'(' => {
                     key_content.push(byte as char);
                     if curr.len() == 1 {
                         prev_ctx = Ctx::Key(idx, take(key_content));
@@ -542,6 +542,9 @@ mod tests {
     }
     #[test]
     fn test_key_or_string() {
+        let mut state = parse(b"/1(2)");
+        assert_eq!(&state.next().unwrap(), "1");
+        assert_eq!(&state.next().unwrap(), "2");
         let mut state = parse(b"/1 /2");
         assert_eq!(&state.next().unwrap(), "1");
         assert_eq!(&state.next().unwrap(), "2");
