@@ -76,6 +76,10 @@ fn main() {
         }
     }
 
+    if options.get_flag("babel") {
+        println!("{babel:?}");
+    }
+
     #[cfg(feature = "slint")]
     {
         use pdf_parser::text::handle_text_operation;

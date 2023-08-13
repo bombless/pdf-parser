@@ -38,6 +38,11 @@ pub fn parse_options() -> ArgMatches {
             .required(false)
             .action(ArgAction::SetTrue)
         )
+        .arg(
+            arg!(-b --babel ... "Print babel dictionary")
+            .required(false)
+            .action(ArgAction::SetTrue)
+        )
         .get_matches();
     matches
 }
