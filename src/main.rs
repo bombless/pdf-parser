@@ -96,9 +96,11 @@ fn main() {
             let state = lexer(stream);
             let mut parser = parse(state).into_iter();
             while let Some(x) = parser.next() {
+                println!("{x:?}");
                 if x.op == "BT" {
                     let mut text_state = TextState::default();
                     while let Some(x) = parser.next() {
+                        println!("{x:?}");
                         if x.op == "ET" {
                             break;
                         }

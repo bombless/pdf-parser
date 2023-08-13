@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use super::lexer::{Token::{self, *}, State};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Operation {
     pub op: String,
     pub tokens: Vec<Token>,
