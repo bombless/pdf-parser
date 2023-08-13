@@ -5,6 +5,7 @@ use std::fmt;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     StringLiteral(Vec<u8>),
+    BytesLiteral(Vec<u8>),
     Key(String),
     Operator(String),
     DictStart,
@@ -24,7 +25,7 @@ impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Token::*;
         match self {
-            StringLiteral(s) => write!(f, "{s:?}"),
+            StringLiteral(s) | BytesLiteral(s) => write!(f, "{s:?}"),
             Key(s) => write!(f, "/{s}"),
             DictStart => write!(f, "DictStart"),
             DictEnd => write!(f, "DictEnd"),
@@ -46,7 +47,7 @@ impl PartialEq<str> for Token {
     fn eq(&self, other: &str) -> bool {
         match self {
             Token::Key(s) if s == other => true,
-            Token::StringLiteral(s) if s == other.as_bytes() => true,
+            Token::StringLiteral(s) | Token::BytesLiteral(s) if s == other.as_bytes() => true,
             _ => false
         }
     }
@@ -141,6 +142,37 @@ impl State {
 
 
             let byte = curr[0];
+
+            if byte == b'<' && Some(&b'<') != curr.get(1) {
+                let mut data = Vec::new();
+                let mut factor = 0;
+                for i in 1 .. curr.len() {
+                    let b = curr[i];
+                    if b == b'>' {
+                        if factor == 0 {
+                            token.replace(Token::BytesLiteral(data));
+                            return i + 1;
+                        }
+                        return 0;
+                    }
+                    if b >= b'0' && b <= b'9' {
+                        factor = factor * 16 + (b - b'0');
+                    }
+                    else if b >= b'a' && b <= b'f' {
+                        factor = factor * 16 + (b - b'a' + 10);
+                    }
+                    else if b >= b'A' && b <= b'F' {
+                        factor = factor * 16 + (b - b'A' + 10);
+                    }
+                    else {
+                        return 0;
+                    }
+                    if i % 2 == 0 {
+                        data.push(factor);
+                        factor = 0;
+                    }
+                }
+            }
 
             match &mut curr_ctx {
                 &mut Ctx::Comment(_, ref mut comment_content) if byte != b'\n' => {
@@ -440,13 +472,28 @@ mod tests {
     use Token::*;
 
     macro_rules! helper  {
-        ($($e:ident $arr:expr)+) => {
+        ($($e:ident $arr:tt)+) => {
             {
                 let mut ret = Vec::new();
-                $(ret.extend($arr.into_iter().map(|x| $e(x.into())));)+
+                $(ret.extend(helper_helper!($e $arr));)+
                 ret
             }
         };
+    }
+
+    macro_rules!  helper_helper {
+        ($e:ident $) => {
+            [$e]
+        };
+        ($e:ident $arr:tt) => {
+            $arr.into_iter().map(|x| $e(x.into()))
+        }
+    }
+
+    #[test]
+    fn test_bytestring() {
+        let mut state = parse(b"<200d0a>");
+        assert_eq!(&state.next().unwrap(), " \r\n");
     }
 
     #[test]
@@ -461,7 +508,7 @@ mod tests {
         [(??)] TJ
         ET
         "#);
-        let before_list = helper![
+        let list = helper![
             Number [1, 0, 0, -1, 0]
             Number [841.89105]
             Operator ["cm"]
@@ -475,19 +522,15 @@ mod tests {
             Number [1, 0, 0, -1]
             Number [70.837906, 78.400406]
             Operator ["Tm"]
-        ];
-        let list = vec![
-            ListStart,
-            StringLiteral("??".into()),
-            ListEnd,
-        ];
-        let after_list = helper![
+            ListStart $
+            StringLiteral ["??"]
+            ListEnd $
             Operator ["TJ", "ET"]
         ];
 
         assert_eq!(
             state.collect::<Vec<Token>>(),
-            before_list.into_iter().chain(list).chain(after_list).collect::<Vec<_>>()
+            list
         );
     }
 
