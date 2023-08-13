@@ -89,6 +89,7 @@ fn main() {
         let first_page = pdf.get_first_page().unwrap();
         let mut texts = Vec::new();
         for obj in first_page {
+            println!("{obj:?}");
             let stream = obj.stream();
             if stream.is_ascii() {
                 println!("{}", String::from_utf8(stream.into()).unwrap());
@@ -171,8 +172,13 @@ fn main() {
         }
     }
 
-    if options.get_flag("references") {
+    if options.get_flag("references") || options.get_one::<String>("nth").is_some() {
         for (id, name, obj) in pdf.get_references() {
+            if let Some(n) = options.get_one::<String>("nth") {
+                if n != &obj.id().0.to_string() {
+                    continue;
+                }
+            }
             println!("{id:?} -> {name} -> {obj:?}");
         }
     }
