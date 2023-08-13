@@ -52,6 +52,11 @@ pub fn parse_options() -> ArgMatches {
             .required(false)
             .action(ArgAction::SetTrue)
         )
+        .arg(
+            arg!(-r --references <n> "Print all references")
+            .required(false)
+            .action(ArgAction::SetTrue)
+        )
         .get_matches();
     matches
 }

@@ -171,6 +171,12 @@ fn main() {
         }
     }
 
+    if options.get_flag("references") {
+        for (id, name, obj) in pdf.get_references() {
+            println!("{id:?} -> {name} -> {obj:?}");
+        }
+    }
+
     if !options.get_flag("texts") {
         return;
     }
