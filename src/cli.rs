@@ -47,6 +47,11 @@ pub fn parse_options() -> ArgMatches {
             arg!(-n --nth <n> "Print object")
             .required(false)
         )
+        .arg(
+            arg!(-a --all <n> "Print all objects")
+            .required(false)
+            .action(ArgAction::SetTrue)
+        )
         .get_matches();
     matches
 }

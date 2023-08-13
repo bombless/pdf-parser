@@ -161,6 +161,14 @@ fn main() {
         }
     }
 
+    if options.get_flag("all") {
+        let mut vec = pdf.get_objects().values().collect::<Vec<_>>();
+        vec.sort_by_key(|v| v.id());
+        for v in vec {
+            println!("{v:?}");
+        }
+    }
+
     if !options.get_flag("texts") {
         return;
     }
