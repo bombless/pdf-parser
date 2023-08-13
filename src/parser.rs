@@ -53,6 +53,13 @@ impl Object {
 
 impl fmt::Debug for Object {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        {
+            let this = self as *const Self;
+            let corrupted = &*CORRUPTED as *const Self;
+            if this == corrupted {
+                return write!(f, "CORRUPTED");
+            }
+        }
         let name = if let Some(Value::Key(s)) = self.dict().get("Type") {
             s.to_owned()
         } else {
@@ -60,6 +67,14 @@ impl fmt::Debug for Object {
         };
         write!(f, "Object({:?}, {name:?}, {} keys, stream length {})", self.id, self.dict().len(), self.stream.len())
     }
+}
+
+lazy_static! {
+    static ref CORRUPTED: Object = Object {
+        id: (0, 0),
+        value: Value::Null,
+        stream: Vec::new(),
+    };
 }
 
 pub struct State {
@@ -85,7 +100,11 @@ impl PDF {
             for (k, v) in o.dict() {
                 match v {
                     &Value::Ref(m, n) => {
-                        ret.push((id, k.to_string(), self.objects.get(&(m, n)).unwrap()));
+                        if let Some(obj) = self.objects.get(&(m, n)) {
+                            ret.push((id, k.to_string(), obj));
+                        } else {
+                            ret.push((id, k.to_string(), &CORRUPTED));
+                        }
                     }
                     Value::Dict(dict) => {
                         self.get_references_from_dict(dict, id, &mut ret);

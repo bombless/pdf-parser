@@ -146,6 +146,21 @@ fn main() {
         }
     }
 
+    if let Some(x) = options.get_one::<String>("nth") {
+        if let Ok(n) = x.parse() {
+            if let Some(obj) = pdf.get(&(n, 0)) {
+                println!("{obj:?}");
+                println!("{:?}", obj.dict());
+                let stream = obj.stream();
+                if stream.is_ascii() {
+                    println!("{}", String::from_utf8(stream.into()).unwrap());
+                } else {
+                    println!("{stream:?}");
+                }
+            }
+        }
+    }
+
     if !options.get_flag("texts") {
         return;
     }
