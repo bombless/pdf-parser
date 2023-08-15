@@ -46,13 +46,14 @@ pub fn handle_text_operation(op: Operation, state: &mut TextState, babel: &HashM
                 if let Number(n) = &operand {
                     let size = state.get_font_size();
                     let (x, y) = state.get_pos();
-                    state.set_pos(x + n / 1000. * size, y);
+                    state.set_pos(x - n / 1000. * size, y);
                 }
                 if let Some(s) = get_one_string(operand, babel) {
                     let size = state.get_font_size();
                     let (x, y) = state.get_pos();
-                    state.set_pos(x + s.len() as f64 * size, y);
+                    let len = s.len();
                     state.push(s);
+                    state.set_pos(x + len as f64 * size, y);
                 }
             }
         }

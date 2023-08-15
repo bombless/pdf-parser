@@ -86,7 +86,8 @@ fn main() {
         use slint_ui::{TextItem, run};
         use pdf_parser::operation::TextState;
         use postscript::parser::parse;
-        let first_page = pdf.get_first_page().unwrap();
+        let (first_page, mb) = pdf.get_first_page().unwrap();
+        println!("window size {mb:?}");
         let mut texts = Vec::new();
         for obj in first_page {
             println!("{obj:?}");
@@ -120,11 +121,11 @@ fn main() {
             }
         }
 
-        run(texts);
+        run(texts, mb.unwrap());
     }
 
     if options.get_flag("first_page") {
-        let first_page = pdf.get_first_page().unwrap();
+        let (first_page, _) = pdf.get_first_page().unwrap();
         for obj in first_page {
             println!("{obj:?}");
             println!("{:?}", obj.dict());

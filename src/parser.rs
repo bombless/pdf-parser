@@ -167,12 +167,25 @@ impl PDF {
         self.objects.get(&pages)
     }
 
-    pub fn get_first_page(&self) -> Option<Vec<&Object>> {
+    pub fn get_first_page(&self) -> Option<(Vec<&Object>, Option<(f64, f64)>)> {
+        fn get_size(dict: &HashMap<String, Value>) -> Option<(f64, f64)> {
+            use Value::*;
+            if let Some(List(list)) = dict.get("MediaBox") {
+                if let &[Number(x1), Number(y1), Number(x2), Number(y2)] = &**list {
+                    return Some((x2 - x1, y2 - y1));
+                }
+            }
+            return None;
+        }
         let mut ptr = if let Some(x) = self.get_pages() {
             x
         } else {
             return None;
         };
+        let mut mb = None;
+        if let Some(pair) = get_size(ptr.dict()) {
+            mb = Some(pair);
+        }
         while let Some(Value::List(list)) = ptr.dict().get("Kids") {
             ptr = if let Some(&Value::Ref(m, n)) = list.get(0) {
                 if let Some(x) = self.get(&(m, n)) {
@@ -182,6 +195,9 @@ impl PDF {
                 }
             } else {
                 return None;
+            };
+            if let Some(pair) = get_size(ptr.dict()) {
+                mb = Some(pair);
             }
         }
         
@@ -196,11 +212,11 @@ impl PDF {
                         return None;
                     });
                 }
-                Some(ret)
+                Some((ret, mb))
             }
             Some(&Value::Ref(m, n)) => {
                 if let Some(x) = self.get(&(m, n)) {
-                    Some(vec![x])
+                    Some((vec![x], mb))
                 } else {
                     None
                 }
