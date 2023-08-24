@@ -33,7 +33,7 @@ pub fn handle_text_operation(op: Operation, state: &mut TextState, babel: &HashM
             } else {
                 panic!("wat");
             };
-            let y_offset = if let Some(Number(y)) = op.tokens.get(0) {
+            let y_offset = if let Some(Number(y)) = op.tokens.get(1) {
                 y
             } else {
                 panic!("wat");
