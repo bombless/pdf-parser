@@ -2,7 +2,7 @@
 use std::collections::VecDeque;
 use std::fmt;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum Token {
     StringLiteral(Vec<u8>),
     BytesLiteral(Vec<u8>),
@@ -21,11 +21,12 @@ pub enum Token {
     XRef,
 }
 
-impl fmt::Display for Token {
+impl fmt::Debug for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Token::*;
         match self {
-            StringLiteral(s) | BytesLiteral(s) => write!(f, "{s:?}"),
+            StringLiteral(s) => write!(f, "{:?}", String::from_utf8_lossy(s)),
+            BytesLiteral(s) => write!(f, "{s:?}"),
             Key(s) => write!(f, "/{s}"),
             DictStart => write!(f, "DictStart"),
             DictEnd => write!(f, "DictEnd"),

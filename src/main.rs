@@ -100,15 +100,17 @@ fn main() {
             let state = lexer(stream);
             let mut parser = parse(state).into_iter();
             while let Some(x) = parser.next() {
-                println!("{x:?}");
+                // println!("{x:?}");
                 if x.op == "BT" {
                     let mut text_state = TextState::default();
                     while let Some(x) = parser.next() {
-                        println!("{x:?}");
                         if x.op == "ET" {
                             break;
                         }
+                        println!("{x:?}");
+                        println!("before: {:?}", text_state.get_pos());
                         handle_text_operation(x, &mut text_state, &babel);
+                        println!("after: {:?}", text_state.get_pos());
                     }
                     for op in text_state.drain() {
                         println!("{op:?}");
