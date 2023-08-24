@@ -1,11 +1,15 @@
+
+#[allow(unused)]
 enum TextStateOperator {
     TC, Tf, TL, Tr, Ts, Tw, Tz
 }
 
+#[allow(unused)]
 enum TextPositioningOperator {
     Td, TD, Tm, TStar
 }
 
+#[allow(unused)]
 enum TextPaintingOperator {
     Tj, TJ
 }
@@ -48,6 +52,7 @@ impl TextState {
     }
 }
 
+#[allow(unused)]
 struct Tm {
     a: f64, b: f64, c: f64, d: f64, e: f64, f: f64,
 }
