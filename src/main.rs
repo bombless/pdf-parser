@@ -87,6 +87,8 @@ fn main() {
         use pdf_parser::operation::TextState;
         use postscript::parser::parse;
         let (first_page, mb) = pdf.get_first_page().unwrap();
+        let window_size = mb.unwrap();
+        let (_, window_height) = window_size;
         println!("window size {mb:?}");
         let mut texts = Vec::new();
         for obj in first_page {
@@ -112,7 +114,7 @@ fn main() {
                         println!("{op:?}");
                         texts.push(TextItem {
                             x: op.x as _,
-                            y: op.y as _,
+                            y: (window_height - op.y) as _,
                             size: op.font_size as _,
                             text: op.text.into(),
                         });
@@ -121,7 +123,7 @@ fn main() {
             }
         }
 
-        run(texts, mb.unwrap());
+        run(texts, window_size);
     }
 
     if options.get_flag("first_page") {
